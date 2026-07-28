@@ -1,5 +1,5 @@
 import { upload, ping } from "./lib/upload.js";
-import { buildUploadBody, friendlyError } from "./lib/helpers.js";
+import { buildUploadBody, friendlyError, extFromContentType, pickExt } from "./lib/helpers.js";
 import { LOCAL } from "./config.local.js";
 
 export async function showToast(tabId, text, ok) {
@@ -11,9 +11,9 @@ export async function showToast(tabId, text, ok) {
 	}
 }
 
-export async function saveToLibrary(tabId, { imageBase64, title, sourceUrl }) {
+export async function saveToLibrary(tabId, { imageBase64, title, sourceUrl, ext }) {
 	try {
-		await upload(buildUploadBody({ imageBase64, title, sourceUrl, folder: LOCAL.folder, now: Date.now() }));
+		await upload(buildUploadBody({ imageBase64, title, sourceUrl, folder: LOCAL.folder, now: Date.now(), ext }));
 		await showToast(tabId, "已存入灵感库 ✓", true);
 	} catch (e) {
 		await showToast(tabId, friendlyError(e), false);
@@ -86,11 +86,11 @@ chrome.runtime.onInstalled.addListener(() => {
 	chrome.contextMenus.create({
 		id: "insp-save-image",
 		title: "存入灵感库",
-		contexts: ["image"],
+		contexts: ["image", "video"],
 	});
 });
 
-async function fetchImageAsBase64(srcUrl) {
+async function fetchMediaAsBase64(srcUrl) {
 	const res = await fetch(srcUrl);
 	if (!res.ok) throw { status: res.status };
 	const buf = await res.arrayBuffer();
@@ -99,16 +99,26 @@ async function fetchImageAsBase64(srcUrl) {
 	for (let i = 0; i < bytes.length; i += 0x8000) {
 		bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
 	}
-	return btoa(bin);
+	return { b64: btoa(bin), contentType: res.headers.get("content-type") };
 }
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
 	if (info.menuItemId !== "insp-save-image" || !tab?.id || !info.srcUrl) return;
 	(async () => {
+		if (info.srcUrl.startsWith("blob:")) {
+			await showToast(tab.id, "这是流媒体，存不了原件；用框选截一帧吧（Alt+Shift+S）", false);
+			return;
+		}
 		// data: URL 的图直接取，无需权限
 		if (info.srcUrl.startsWith("data:")) {
+			const mime = info.srcUrl.slice(5, info.srcUrl.indexOf(";")) || null;
 			const b64 = info.srcUrl.split(",")[1] ?? "";
-			await saveToLibrary(tab.id, { imageBase64: b64, title: tab.title ?? "clip", sourceUrl: info.pageUrl ?? "" });
+			await saveToLibrary(tab.id, {
+				imageBase64: b64,
+				title: tab.title ?? "clip",
+				sourceUrl: info.pageUrl ?? "",
+				ext: extFromContentType(mime) ?? "png",
+			});
 			return;
 		}
 		// 用户手势窗口内申请该图源域名的权限（首次一问，之后静默）
@@ -125,8 +135,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 			return;
 		}
 		try {
-			const b64 = await fetchImageAsBase64(info.srcUrl);
-			await saveToLibrary(tab.id, { imageBase64: b64, title: tab.title ?? "clip", sourceUrl: info.pageUrl ?? info.srcUrl });
+			const { b64, contentType } = await fetchMediaAsBase64(info.srcUrl);
+			await saveToLibrary(tab.id, {
+				imageBase64: b64,
+				title: tab.title ?? "clip",
+				sourceUrl: info.pageUrl ?? info.srcUrl,
+				ext: pickExt(contentType, info.srcUrl),
+			});
 		} catch {
 			await showToast(tab.id, "原图拿不到（站点防盗链），用框选截图吧（Alt+Shift+S）", false);
 		}
