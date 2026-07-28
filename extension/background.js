@@ -8,6 +8,15 @@ export async function showToast(tabId, text, ok) {
 		await chrome.tabs.sendMessage(tabId, { action: "inspToast", text, ok });
 	} catch (e) {
 		console.warn("[insp] toast failed:", e);
+		// executeScript is blocked on protected pages (chrome://, Web Store, PDF viewer);
+		// fall back to a badge flash so failures are never fully silent there.
+		try {
+			await chrome.action.setBadgeText({ text: ok ? "✓" : "✗", tabId });
+			await chrome.action.setBadgeBackgroundColor({ color: ok ? "#22c55e" : "#ef4444", tabId });
+			setTimeout(() => chrome.action.setBadgeText({ text: "", tabId }).catch(() => {}), 3000);
+		} catch (e2) {
+			console.warn("[insp] badge fallback failed:", e2);
+		}
 	}
 }
 
@@ -26,7 +35,12 @@ async function startRegionCapture(tab) {
 	try {
 		dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
 	} catch (e) {
-		await showToast(tab.id, "这个页面截不了图（浏览器保护页），换个页面试试", false);
+		const msg = e?.message ?? "";
+		if (/quota|per second|MAX_CAPTURE/i.test(msg)) {
+			await showToast(tab.id, "截太快了，等一秒再试", false);
+		} else {
+			await showToast(tab.id, "这个页面截不了图（浏览器保护页），换个页面试试", false);
+		}
 		return;
 	}
 	await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content-overlay.js"] });
@@ -83,17 +97,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-	chrome.contextMenus.create({
-		id: "insp-save-image",
-		title: "存入灵感库",
-		contexts: ["image", "video"],
+	chrome.contextMenus.removeAll(() => {
+		chrome.contextMenus.create({
+			id: "insp-save-image",
+			title: "存入灵感库",
+			contexts: ["image", "video"],
+		});
 	});
 });
+
+const MAX_MEDIA_BYTES = 50 * 1024 * 1024; // 50MB — keep the SW from dying mid-encode on huge videos
 
 async function fetchMediaAsBase64(srcUrl) {
 	const res = await fetch(srcUrl);
 	if (!res.ok) throw { status: res.status };
+	const len = res.headers.get("content-length");
+	if (len && Number(len) > MAX_MEDIA_BYTES) throw { tooLarge: true };
 	const buf = await res.arrayBuffer();
+	if (buf.byteLength > MAX_MEDIA_BYTES) throw { tooLarge: true };
 	let bin = "";
 	const bytes = new Uint8Array(buf);
 	for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -109,10 +130,15 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 			await showToast(tab.id, "这是流媒体，存不了原件；用框选截一帧吧（Alt+Shift+S）", false);
 			return;
 		}
-		// data: URL 的图直接取，无需权限
+		// data: URL 的图直接取，无需权限（仅支持 base64 编码；其他编码如裸 svg+xml 不解析）
 		if (info.srcUrl.startsWith("data:")) {
-			const mime = info.srcUrl.slice(5, info.srcUrl.indexOf(";")) || null;
-			const b64 = info.srcUrl.split(",")[1] ?? "";
+			const match = info.srcUrl.match(/^data:([^;,]+)?;base64,/);
+			if (!match) {
+				await showToast(tab.id, "这种内嵌图存不了，用框选截图吧（Alt+Shift+S）", false);
+				return;
+			}
+			const mime = match[1] || null;
+			const b64 = info.srcUrl.slice(match[0].length);
 			await saveToLibrary(tab.id, {
 				imageBase64: b64,
 				title: tab.title ?? "clip",
@@ -142,7 +168,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 				sourceUrl: info.pageUrl ?? info.srcUrl,
 				ext: pickExt(contentType, info.srcUrl),
 			});
-		} catch {
+		} catch (e) {
+			if (e?.tooLarge) {
+				await showToast(tab.id, "文件太大（超过 50MB），存不了；试试框选截图（Alt+Shift+S）", false);
+				return;
+			}
 			await showToast(tab.id, "原图拿不到（站点防盗链），用框选截图吧（Alt+Shift+S）", false);
 		}
 	})();

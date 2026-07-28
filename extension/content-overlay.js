@@ -1,7 +1,7 @@
 // content-overlay.js — 区域框选遮罩（移植自 Visual Clipper extension/content.js 1-141 行）
 (function () {
-	// Register the message listener once per document. injectContentScript() clears
-	// this flag before re-injecting, so a freshly injected script always re-binds.
+	// Register the message listener once per document, so a freshly injected
+	// script (re-injected on every capture) never accumulates duplicate listeners.
 	if (window.__INSP_OVERLAY_BOUND__) return;
 	window.__INSP_OVERLAY_BOUND__ = true;
 
@@ -9,12 +9,12 @@
 	let state = "idle"; // 'idle' | 'selecting' | 'processing'
 	let startX = 0, startY = 0, endX = 0, endY = 0;
 	let pendingDataUrl = null; // screenshot held here until region is selected
+	let safetyTimer = null;
 
 	function show(dataUrl) {
 		// Trust the DOM, not the flag: an SPA re-render can detach the overlay without
 		// remove() running, leaving the flag stuck and blocking the next capture.
 		if (overlay && overlay.isConnected) return;
-		window.__INSP_OVERLAY_ACTIVE__ = true;
 		pendingDataUrl = dataUrl || null;
 
 		overlay = document.createElement("div");
@@ -78,8 +78,9 @@
 
 	function remove() {
 		document.removeEventListener("keydown", onKey, true);
+		clearTimeout(safetyTimer);
+		safetyTimer = null;
 		if (overlay) overlay.remove();
-		window.__INSP_OVERLAY_ACTIVE__ = false;
 		pendingDataUrl = null;
 		state = "idle";
 	}
@@ -108,8 +109,11 @@
 		state = "processing";
 		hint.textContent = "保存中…";
 
-		// Safety: reset to idle if background never replies (crash / connection loss)
-		const safetyTimer = setTimeout(() => {
+		// Safety: reset to idle if background never replies (crash / connection loss).
+		// Cleared only by the real completion signal (inspCaptureDone → remove()),
+		// not by the sendMessage callback below, which fires as soon as the message
+		// channel closes and says nothing about whether the capture actually finished.
+		safetyTimer = setTimeout(() => {
 			if (state === "processing") {
 				state = "idle";
 				hint.textContent = "超时了，重试一下";
@@ -124,7 +128,7 @@
 			source_url: location.href,
 			title: document.title,
 			dataUrl: pendingDataUrl, // pass screenshot back to background
-		}, () => clearTimeout(safetyTimer));
+		}, () => void chrome.runtime.lastError); // no response expected; silence the unchecked-lastError warning
 	}
 
 	function onKey(e) {
