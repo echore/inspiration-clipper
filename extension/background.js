@@ -81,3 +81,54 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 		chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => startRegionCapture(tab));
 	}
 });
+
+chrome.runtime.onInstalled.addListener(() => {
+	chrome.contextMenus.create({
+		id: "insp-save-image",
+		title: "存入灵感库",
+		contexts: ["image"],
+	});
+});
+
+async function fetchImageAsBase64(srcUrl) {
+	const res = await fetch(srcUrl);
+	if (!res.ok) throw { status: res.status };
+	const buf = await res.arrayBuffer();
+	let bin = "";
+	const bytes = new Uint8Array(buf);
+	for (let i = 0; i < bytes.length; i += 0x8000) {
+		bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+	}
+	return btoa(bin);
+}
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+	if (info.menuItemId !== "insp-save-image" || !tab?.id || !info.srcUrl) return;
+	(async () => {
+		// data: URL 的图直接取，无需权限
+		if (info.srcUrl.startsWith("data:")) {
+			const b64 = info.srcUrl.split(",")[1] ?? "";
+			await saveToLibrary(tab.id, { imageBase64: b64, title: tab.title ?? "clip", sourceUrl: info.pageUrl ?? "" });
+			return;
+		}
+		// 用户手势窗口内申请该图源域名的权限（首次一问，之后静默）
+		let origin;
+		try {
+			origin = new URL(info.srcUrl).origin + "/*";
+		} catch {
+			await showToast(tab.id, "这张图的地址不认识，用框选截图吧（Alt+Shift+S）", false);
+			return;
+		}
+		const granted = await chrome.permissions.request({ origins: [origin] }).catch(() => false);
+		if (!granted) {
+			await showToast(tab.id, "没拿到读图权限，用框选截图吧（Alt+Shift+S）", false);
+			return;
+		}
+		try {
+			const b64 = await fetchImageAsBase64(info.srcUrl);
+			await saveToLibrary(tab.id, { imageBase64: b64, title: tab.title ?? "clip", sourceUrl: info.pageUrl ?? info.srcUrl });
+		} catch {
+			await showToast(tab.id, "原图拿不到（站点防盗链），用框选截图吧（Alt+Shift+S）", false);
+		}
+	})();
+});
