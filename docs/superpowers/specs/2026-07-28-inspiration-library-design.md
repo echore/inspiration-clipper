@@ -72,9 +72,12 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 - 每张图自动带 `sourceUrl` + `sourceTitle`（sidecar 里可回溯来源）
 - 标签捕获时一律不打，交给后置的手动/AI 流程
 
-### 设置页（一次性配置）
+### 零配置（2026-07-28 对话修订：取代"设置页一次性配置"）
 
-- 端口（默认 27124）、API key、默认目标文件夹（默认 `灵感库`）
+- 端口（27124）、API key、目标文件夹（`灵感库`）全部**出厂预置**，用户不存在"配置"步骤
+- API key 由安装脚本在**用户机器上生成并直写两端**（插件 data.json + 扩展本地 config，均不入 git、不回显、不进对话）——开发者永远不见 key 值
+- 点扩展图标看到的是**状态卡片**（连接绿/红灯 + 人话指引 + 快捷键提示），不是设置表单；红灯文案告诉用户怎么办（"Obsidian 没开，打开 creation-flywheel 就能用"）
+- 产品化时的多用户初始配对做成插件端一键确认的 pairing 流程（本期不做，记录在案）
 
 ### 错误处理
 
@@ -103,7 +106,7 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 1. Media Companion fork（白名单 + 随机排序），装进 creation-flywheel，验证 gallery
 2. 灵感 clipper 扩展 MV3，打通 Chrome → 灵感库 链路
 3. /tag-gallery skill + SOP 模板
-4. 上游 PR ×2
+4. 上游 PR ×2（2026-07-28 用户决定：顺延到扩展做完、整条链路实测过之后再提，让 PR 带着实战验证出门）
 
 ## 验收标准（Definition of Done）
 
