@@ -2,6 +2,7 @@
 # scripts/setup-key.sh — 在本机生成 API key 并写入插件与扩展两端。
 # 输出只有 ok/错误，key 值永不回显、不进日志。
 set -euo pipefail
+umask 077
 
 VAULT_DATA="/Users/liyachen/Documents/creation-flywheel/.obsidian/plugins/media-companion/data.json"
 EXT_CONFIG="$(cd "$(dirname "$0")/.." && pwd)/extension/config.local.js"
@@ -18,6 +19,7 @@ data["apiEnabled"] = True
 with open(path, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
 PY
+chmod 600 "$VAULT_DATA"
 
 cat > "$EXT_CONFIG" <<EOF
 // 自动生成：scripts/setup-key.sh。不进 git。
@@ -27,5 +29,6 @@ export const LOCAL = {
 	folder: "灵感库",
 };
 EOF
+chmod 600 "$EXT_CONFIG"
 
 echo "ok: key written to plugin data.json and extension config.local.js"
