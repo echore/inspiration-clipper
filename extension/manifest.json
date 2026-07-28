@@ -1,0 +1,17 @@
+{
+	"manifest_version": 3,
+	"name": "灵感 Clipper",
+	"version": "0.1.0",
+	"description": "框选或右键，一键把灵感存进 Obsidian 灵感库。",
+	"permissions": ["contextMenus", "activeTab", "scripting", "storage"],
+	"optional_host_permissions": ["<all_urls>"],
+	"background": { "service_worker": "background.js", "type": "module" },
+	"action": { "default_title": "灵感 Clipper：框选截图", "default_popup": "popup/popup.html" },
+	"commands": {
+		"capture-region": {
+			"suggested_key": { "default": "Alt+Shift+S" },
+			"description": "框选截图存入灵感库"
+		}
+	},
+	"icons": { "128": "icon128.png" }
+}
