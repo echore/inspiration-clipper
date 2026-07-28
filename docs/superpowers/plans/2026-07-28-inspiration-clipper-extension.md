@@ -30,7 +30,7 @@
 - Create: `.gitignore`（追加）
 
 **Interfaces:**
-- Produces: 可被 Chrome load-unpacked 识别的扩展骨架；`node --test tests/` 可运行
+- Produces: 可被 Chrome load-unpacked 识别的扩展骨架；`node --test` 可运行
 
 - [ ] **Step 1: 写 manifest.json**
 
@@ -99,7 +99,7 @@ test("test infra runs", () => {
 
 - [ ] **Step 5: 运行验证 + commit**
 
-Run: `cd /Users/liyachen/Documents/fang/inspiration-clipper && node --test tests/`
+Run: `cd /Users/liyachen/Documents/fang/inspiration-clipper && node --test`
 Expected: 1 pass。
 
 ```bash
@@ -233,7 +233,7 @@ test("friendlyError default message", () => {
 });
 ```
 
-- [ ] **Step 2: 确认失败** — Run: `node --test tests/` → FAIL（导出不存在）
+- [ ] **Step 2: 确认失败** — Run: `node --test` → FAIL（导出不存在）
 
 - [ ] **Step 3: 实现**
 
@@ -268,7 +268,7 @@ export function friendlyError(e) {
 
 - [ ] **Step 4: 确认通过 + commit**
 
-Run: `node --test tests/` → 8 pass。
+Run: `node --test` → 8 pass。
 
 ```bash
 git add extension/lib/helpers.js tests/helpers.test.mjs
@@ -387,7 +387,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 - [ ] **Step 4: 验证 + commit**
 
-Run: `node --test tests/`（helpers 不回归）+ `node --check extension/background.js extension/lib/upload.js extension/content-toast.js`
+Run: `node --test`（helpers 不回归）+ `node --check extension/background.js extension/lib/upload.js extension/content-toast.js`
 Expected: 全通过（`node --check` 用 `for f in ...; do node --check $f; done` 逐个跑）。
 
 ```bash
