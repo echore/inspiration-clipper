@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+	body { width: 260px; margin: 0; padding: 16px; font: 14px/1.6 system-ui, sans-serif; }
+	.light { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+	.ok { background: #16a34a; } .bad { background: #dc2626; }
+	#hint { color: #666; font-size: 12px; margin: 8px 0 12px; }
+	button { width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #6366f1; color: #fff; font-size: 14px; cursor: pointer; }
+	button:disabled { background: #c7c9f5; }
+	.kbd { color: #999; font-size: 12px; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+	<div><span id="light" class="light bad"></span><span id="status">检查连接中…</span></div>
+	<div id="hint"></div>
+	<button id="capture" disabled>框选截图</button>
+	<div class="kbd">快捷键 Alt+Shift+S</div>
+	<script type="module" src="popup.js"></script>
+</body>
+</html>
