@@ -113,7 +113,9 @@ async function cropImage(dataUrl, rect, dpr) {
 // popup 状态查询 + 区域框选截图流
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 	if (msg?.action === "inspPing") {
-		ping().then((ok) => sendResponse({ ok }));
+		probeAll()
+			.then((caps) => sendResponse({ ok: Object.keys(caps).length > 0 }))
+			.catch(() => sendResponse({ ok: false }));
 		return true;
 	}
 

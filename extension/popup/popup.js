@@ -17,7 +17,7 @@ chrome.runtime.sendMessage({ action: "inspPing" }, (resp) => {
 	if (!resp && chrome.runtime.lastError) {
 		// No receiver at all — the service worker never registered its listeners,
 		// most likely because extension/config.local.js is missing (fresh clone).
-		hint.textContent = "扩展没配置好：在仓库里跑一次 scripts/setup-key.sh，然后重新加载扩展。";
+		hint.textContent = "还没配置目的地：临时用 service worker console 写入 settings（配置页即将上线）";
 	} else {
 		hint.textContent = "打开 Obsidian 的 creation-flywheel 仓库就能用；开着还不行就重开一次 Media Companion 插件。";
 	}
