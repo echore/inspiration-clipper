@@ -44,6 +44,10 @@
 		overlay.addEventListener("mousedown", onDown);
 		overlay.addEventListener("mousemove", onMove);
 		overlay.addEventListener("mouseup", onUp);
+		// The crop is cut from a screenshot taken before the overlay showed; any
+		// scroll while framing would desync what the user sees from what gets saved.
+		overlay.addEventListener("wheel", blockScroll, { passive: false });
+		overlay.addEventListener("touchmove", blockScroll, { passive: false });
 		document.addEventListener("keydown", onKey, true);
 		state = "idle";
 	}
@@ -131,8 +135,15 @@
 		}, () => void chrome.runtime.lastError); // no response expected; silence the unchecked-lastError warning
 	}
 
+	function blockScroll(e) {
+		e.preventDefault();
+	}
+
+	const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "]);
+
 	function onKey(e) {
 		if (e.key === "Escape") remove();
+		else if (SCROLL_KEYS.has(e.key)) e.preventDefault();
 	}
 
 	// Listen for messages from background
