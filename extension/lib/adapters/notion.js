@@ -56,28 +56,43 @@ export const notionAdapter = {
 	},
 
 	async save(item, cfg) {
-		const createRes = await fetch(`${API}/file_uploads`, {
-			method: "POST",
-			headers: { ...headers(cfg), "Content-Type": "application/json" },
-			body: JSON.stringify({ filename: item.filename, content_type: item.mime }),
-		});
+		let createRes;
+		try {
+			createRes = await fetch(`${API}/file_uploads`, {
+				method: "POST",
+				headers: { ...headers(cfg), "Content-Type": "application/json" },
+				body: JSON.stringify({ filename: item.filename, content_type: item.mime }),
+			});
+		} catch {
+			throw { errorKey: "errNotionUnreachable" };
+		}
 		if (!createRes.ok) throw { errorKey: "errNotionGeneric", status: createRes.status };
 		const { id, upload_url } = await createRes.json();
 
 		const form = new FormData();
 		form.append("file", blobFromBase64(item.base64, item.mime), item.filename);
 		// 不要手写 Content-Type：boundary 必须由 FormData 自己生成
-		const sendRes = await fetch(upload_url, { method: "POST", headers: headers(cfg), body: form });
+		let sendRes;
+		try {
+			sendRes = await fetch(upload_url, { method: "POST", headers: headers(cfg), body: form });
+		} catch {
+			throw { errorKey: "errNotionUnreachable" };
+		}
 		if (!sendRes.ok) throw { errorKey: "errNotionUploadFailed", status: sendRes.status };
 
-		const pageRes = await fetch(`${API}/pages`, {
-			method: "POST",
-			headers: { ...headers(cfg), "Content-Type": "application/json" },
-			body: JSON.stringify({
-				parent: { database_id: cfg.databaseId },
-				properties: notionPageProperties(item, id),
-			}),
-		});
+		let pageRes;
+		try {
+			pageRes = await fetch(`${API}/pages`, {
+				method: "POST",
+				headers: { ...headers(cfg), "Content-Type": "application/json" },
+				body: JSON.stringify({
+					parent: { database_id: cfg.databaseId },
+					properties: notionPageProperties(item, id),
+				}),
+			});
+		} catch {
+			throw { errorKey: "errNotionUnreachable" };
+		}
 		if (!pageRes.ok) throw { errorKey: "errNotionPageFailed", status: pageRes.status };
 	},
 };
