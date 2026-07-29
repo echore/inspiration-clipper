@@ -88,7 +88,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 		(async () => {
 			try {
 				const b64 = await cropImage(msg.dataUrl, msg.rect, msg.dpr);
-				await chrome.tabs.sendMessage(tabId, { action: "inspCaptureDone" });
+				// Overlay may be gone already (user navigated mid-crop) — the crop
+				// succeeded, so dismiss failure must not abort the save.
+				await chrome.tabs.sendMessage(tabId, { action: "inspCaptureDone" }).catch(() => {});
 				await saveToLibrary(tabId, { imageBase64: b64, title: msg.title, sourceUrl: msg.source_url });
 			} catch (e) {
 				await chrome.tabs.sendMessage(tabId, { action: "inspCaptureDone" }).catch(() => {});
@@ -128,12 +130,19 @@ async function fetchMediaAsBase64(srcUrl) {
 	for (let i = 0; i < bytes.length; i += 0x8000) {
 		bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
 	}
-	return { b64: btoa(bin), contentType: res.headers.get("content-type") };
+	// res.url is the post-redirect URL — share links often 302 to the real file,
+	// whose path carries the extension the original URL lacks.
+	return { b64: btoa(bin), contentType: res.headers.get("content-type"), finalUrl: res.url || srcUrl };
 }
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-	if (info.menuItemId !== "insp-save-image" || !tab?.id || !info.srcUrl) return;
+	if (info.menuItemId !== "insp-save-image" || !tab?.id) return;
 	(async () => {
+		// MSE-driven <video> (and some <source> setups) expose no srcUrl
+		if (!info.srcUrl) {
+			await showToast(tab.id, "这个媒体拿不到地址，存不了原件；用框选截一帧吧（Alt+Shift+S）", false);
+			return;
+		}
 		if (info.srcUrl.startsWith("blob:")) {
 			await showToast(tab.id, "这是流媒体，存不了原件；用框选截一帧吧（Alt+Shift+S）", false);
 			return;
@@ -174,8 +183,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 			return;
 		}
 		try {
-			const { b64, contentType } = await fetchMediaAsBase64(info.srcUrl);
-			const ext = pickExt(contentType, info.srcUrl);
+			const { b64, contentType, finalUrl } = await fetchMediaAsBase64(info.srcUrl);
+			const ext = pickExt(contentType, finalUrl);
 			if (!ext) {
 				await showToast(tab.id, "认不出这个文件的格式，用框选截图吧（Alt+Shift+S）", false);
 				return;
