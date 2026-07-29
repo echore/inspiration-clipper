@@ -25,6 +25,7 @@ const captureBtn = document.querySelector("#capture");
 	}
 
 	// Test each adapter in the chain
+	let anyOk = false;
 	for (const adapterId of settings.chain) {
 		const adapter = ADAPTERS[adapterId];
 		if (!adapter) continue;
@@ -36,6 +37,7 @@ const captureBtn = document.querySelector("#capture");
 		const row = document.createElement("div");
 
 		if (result.ok) {
+			anyOk = true;
 			row.innerHTML = `
 				<div class="dest-row">
 					<span class="dest-light ok"></span>
@@ -56,8 +58,7 @@ const captureBtn = document.querySelector("#capture");
 		destinationsDiv.appendChild(row);
 	}
 
-	// Enable capture if at least one destination is OK
-	captureBtn.disabled = false;
+	captureBtn.disabled = !anyOk;
 })();
 
 // Open options page

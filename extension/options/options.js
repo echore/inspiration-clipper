@@ -5,16 +5,7 @@ import { t } from "../lib/i18n.js";
 // Fill in i18n text
 document.querySelectorAll("[data-i18n]").forEach((el) => {
 	const key = el.dataset.i18n;
-	if (el.tagName === "BUTTON" && el.type === "submit") {
-		// Skip submit button, it's handled separately
-		return;
-	}
-	if (!el.textContent || !el.textContent.trim()) {
-		el.textContent = t(key);
-	} else {
-		// Already has content (like <option>), only translate if it's a data-i18n placeholder
-		el.textContent = t(key);
-	}
+	el.textContent = t(key);
 });
 
 const form = document.querySelector("form");
