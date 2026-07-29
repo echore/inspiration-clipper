@@ -60,12 +60,24 @@ document.querySelectorAll("[data-test-adapter]").forEach((btn) => {
 	btn.addEventListener("click", async (e) => {
 		e.preventDefault();
 		const id = btn.dataset.testAdapter;
-		const cur = await loadSettings();
+
+		// Build config from current form values
+		const cfg = {
+			obsidian: {
+				port: Number(portInput.value) || 27124,
+				apiKey: apiKeyInput.value.trim(),
+				folder: folderInput.value.trim() || "灵感库",
+			},
+			notion: {
+				token: tokenInput.value.trim(),
+				databaseId: databaseIdInput.value.trim(),
+			},
+		};
 
 		const light = document.querySelector(`#status-${id}`);
 		const text = document.querySelector(`#status-${id}-text`);
 
-		const r = await ADAPTERS[id].test(cur.byAdapter[id]);
+		const r = await ADAPTERS[id].test(cfg[id]);
 		if (r.ok) {
 			light.className = "status-light ok";
 			text.textContent = t("optConnected");

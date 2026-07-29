@@ -49,5 +49,8 @@
   "captureFileFormatUnknown":   { "message": "认不出这个文件的格式，用框选截图吧（Alt+Shift+S）" },
   "captureFileTooLarge":        { "message": "文件太大（超过 50MB），存不了；试试框选截图（Alt+Shift+S）" },
   "captureAntiLeech":           { "message": "原图拿不到（站点防盗链），用框选截图吧（Alt+Shift+S）" },
-  "ctxSaveImage":               { "message": "存入灵感库" }
+  "ctxSaveImage":               { "message": "存入灵感库" },
+  "overlayHint":                { "message": "拖动框选要收藏的区域，Esc 取消" },
+  "overlaySaving":              { "message": "保存中…" },
+  "overlayTimeout":             { "message": "超时了，重试一下" }
 }

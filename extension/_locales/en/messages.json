@@ -49,5 +49,8 @@
   "captureFileFormatUnknown":   { "message": "Can't recognize this file format — use the region capture tool instead (Alt+Shift+S)" },
   "captureFileTooLarge":        { "message": "File is over 50 MB — can't save. Try the region capture tool instead (Alt+Shift+S)" },
   "captureAntiLeech":           { "message": "Can't get the original (anti-leeching protection) — try the region capture tool (Alt+Shift+S)" },
-  "ctxSaveImage":               { "message": "Save to library" }
+  "ctxSaveImage":               { "message": "Save to library" },
+  "overlayHint":                { "message": "Drag to select the area to save — Esc to cancel" },
+  "overlaySaving":              { "message": "Saving…" },
+  "overlayTimeout":             { "message": "Timed out — try again" }
 }

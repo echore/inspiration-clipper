@@ -11,7 +11,7 @@
 	let pendingDataUrl = null; // screenshot held here until region is selected
 	let safetyTimer = null;
 
-	const HINT_TEXT = "拖动框选要收藏的区域，Esc 取消";
+	const HINT_TEXT = chrome.i18n?.getMessage("overlayHint") || "拖动框选要收藏的区域，Esc 取消";
 	const HINT_BG = "rgba(0,0,0,.75)";
 
 	function show(dataUrl) {
@@ -128,7 +128,7 @@
 		if (w < 10 || h < 10) { state = "idle"; draw(); return; }
 
 		state = "processing";
-		hint.textContent = "保存中…";
+		hint.textContent = chrome.i18n?.getMessage("overlaySaving") || "保存中…";
 
 		// Safety: reset to idle if background never replies (crash / connection loss).
 		// Cleared only by the real completion signal (inspCaptureDone → remove()),
@@ -137,7 +137,7 @@
 		safetyTimer = setTimeout(() => {
 			if (state === "processing") {
 				state = "idle";
-				hint.textContent = "超时了，重试一下";
+				hint.textContent = chrome.i18n?.getMessage("overlayTimeout") || "超时了，重试一下";
 				hint.style.background = "rgba(239,68,68,.85)";
 			}
 		}, 15000);
