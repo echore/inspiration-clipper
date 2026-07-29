@@ -54,3 +54,11 @@ export function friendlyError(e) {
 	if (e && e.status === 401) return "连接钥匙对不上，重跑 setup-key 脚本试试";
 	return "没存上，重试一下；连续失败请点扩展图标看状态";
 }
+
+// base64 解码后的真实字节数。路由层用它判断是否超过目的地上限，
+// 不能用 b64.length 近似 —— 33% 的膨胀会让 5MB 的门槛误判。
+export function byteLengthFromBase64(b64) {
+	if (!b64) return 0;
+	const padding = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+	return Math.floor((b64.length * 3) / 4) - padding;
+}

@@ -8,6 +8,7 @@ import {
 	extFromContentType,
 	extFromUrl,
 	pickExt,
+	byteLengthFromBase64,
 } from "../extension/lib/helpers.js";
 
 test("sanitizeTitle strips forbidden chars and trims", () => {
@@ -63,4 +64,15 @@ test("buildFilename honors ext parameter and defaults to png", () => {
 test("buildUploadBody carries ext into filename", () => {
 	const b = buildUploadBody({ imageBase64: "A", title: "T", sourceUrl: "u", folder: "F", now: 5, ext: "mp4" });
 	assert.equal(b.filename, "T-5.mp4");
+});
+test("byteLengthFromBase64 computes exact decoded size", () => {
+	// "A" -> "QQ==", "AB" -> "QUI=", "ABC" -> "QUJD"
+	assert.equal(byteLengthFromBase64("QQ=="), 1);
+	assert.equal(byteLengthFromBase64("QUI="), 2);
+	assert.equal(byteLengthFromBase64("QUJD"), 3);
+	assert.equal(byteLengthFromBase64(""), 0);
+});
+test("byteLengthFromBase64 handles a 4KB payload without padding drift", () => {
+	const b64 = "A".repeat(5464); // 5464 chars, no padding -> 4098 bytes
+	assert.equal(byteLengthFromBase64(b64), 4098);
 });
