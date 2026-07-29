@@ -1,6 +1,9 @@
-import { upload, ping } from "./lib/upload.js";
-import { buildUploadBody, friendlyError, extFromContentType, pickExt } from "./lib/helpers.js";
-import { LOCAL } from "./config.local.js";
+import { makeCaptureItem } from "./lib/capture-item.js";
+import { chooseDestination } from "./lib/router.js";
+import { getAdapter } from "./lib/adapters/index.js";
+import { loadSettings, probeAll } from "./lib/settings.js";
+import { extFromContentType, pickExt } from "./lib/helpers.js";
+import { t } from "./lib/i18n.js";
 
 export async function showToast(tabId, text, ok) {
 	try {
@@ -20,13 +23,44 @@ export async function showToast(tabId, text, ok) {
 	}
 }
 
-export async function saveToLibrary(tabId, { imageBase64, title, sourceUrl, ext }) {
-	try {
-		await upload(buildUploadBody({ imageBase64, title, sourceUrl, folder: LOCAL.folder, now: Date.now(), ext }));
-		await showToast(tabId, "已存入灵感库 ✓", true);
-	} catch (e) {
-		await showToast(tabId, friendlyError(e), false);
+const MIME_BY_EXT = {
+	png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
+	avif: "image/avif", bmp: "image/bmp", gif: "image/gif", svg: "image/svg+xml",
+	mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", ogv: "video/ogg",
+};
+
+export async function saveToLibrary(tabId, { base64, ext = "png", title, sourceUrl }) {
+	const item = makeCaptureItem({
+		base64, ext, mime: MIME_BY_EXT[ext] ?? "application/octet-stream",
+		title, sourceUrl, now: Date.now(),
+	});
+	const settings = await loadSettings();
+	const caps = await probeAll();
+	const decision = chooseDestination(item, settings.chain, caps);
+
+	if (decision.error === "noDestination") {
+		await showToast(tabId, t("errNoDestination"), false);
+		return;
 	}
+	if (decision.error === "tooLargeForAll") {
+		await showToast(tabId, t("errTooLarge", [mb(decision.byteLength), mb(decision.maxFileSize)]), false);
+		return;
+	}
+
+	const adapter = getAdapter(decision.adapterId);
+	try {
+		await adapter.save(item, settings.byAdapter[decision.adapterId]);
+		const msg = decision.degradedFrom
+			? t("okSavedDegraded", [t(`dest_${decision.adapterId}`), t(`dest_${decision.degradedFrom}`)])
+			: t("okSaved", [t(`dest_${decision.adapterId}`)]);
+		await showToast(tabId, msg, true);
+	} catch (e) {
+		await showToast(tabId, t(e?.errorKey ?? "errGeneric"), false);
+	}
+}
+
+function mb(bytes) {
+	return (bytes / 1024 / 1024).toFixed(1);
 }
 
 async function startRegionCapture(tab) {
@@ -91,7 +125,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				// Overlay may be gone already (user navigated mid-crop) — the crop
 				// succeeded, so dismiss failure must not abort the save.
 				await chrome.tabs.sendMessage(tabId, { action: "inspCaptureDone" }).catch(() => {});
-				await saveToLibrary(tabId, { imageBase64: b64, title: msg.title, sourceUrl: msg.source_url });
+				await saveToLibrary(tabId, { base64: b64, ext: "png", title: msg.title, sourceUrl: msg.source_url });
 			} catch (e) {
 				await chrome.tabs.sendMessage(tabId, { action: "inspCaptureDone" }).catch(() => {});
 				await showToast(tabId, "没存上，重试一下；连续失败请点扩展图标看状态", false);
@@ -162,7 +196,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 			}
 			const b64 = info.srcUrl.slice(match[0].length);
 			await saveToLibrary(tab.id, {
-				imageBase64: b64,
+				base64: b64,
 				title: tab.title ?? "clip",
 				sourceUrl: info.pageUrl ?? "",
 				ext: dataExt,
@@ -190,7 +224,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 				return;
 			}
 			await saveToLibrary(tab.id, {
-				imageBase64: b64,
+				base64: b64,
 				title: tab.title ?? "clip",
 				sourceUrl: info.pageUrl ?? info.srcUrl,
 				ext,
