@@ -8,17 +8,6 @@ export function buildFilename(title, now, ext = "png") {
 	return `${sanitizeTitle(title)}-${now}.${ext}`;
 }
 
-export function buildUploadBody({ imageBase64, title, sourceUrl, folder, now, ext = "png" }) {
-	return {
-		imageBase64,
-		filename: buildFilename(title, now, ext),
-		folder,
-		tags: [],
-		sourceUrl,
-		sourceTitle: sanitizeTitle(title),
-	};
-}
-
 const MEDIA_EXTS = new Set(["png", "jpg", "jpeg", "webp", "avif", "bmp", "gif", "svg", "mp4", "webm", "mov", "ogv"]);
 
 const CONTENT_TYPE_EXT = {
@@ -47,12 +36,6 @@ export function extFromUrl(url) {
 // than a visible failure).
 export function pickExt(contentType, url) {
 	return extFromContentType(contentType) ?? extFromUrl(url) ?? null;
-}
-
-export function friendlyError(e) {
-	if (e && e.networkError) return "Obsidian（creation-flywheel）没开，这张没存上";
-	if (e && e.status === 401) return "连接钥匙对不上，重跑 setup-key 脚本试试";
-	return "没存上，重试一下；连续失败请点扩展图标看状态";
 }
 
 // base64 解码后的真实字节数。路由层用它判断是否超过目的地上限，

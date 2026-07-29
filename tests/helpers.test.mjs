@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import {
 	sanitizeTitle,
 	buildFilename,
-	buildUploadBody,
-	friendlyError,
 	extFromContentType,
 	extFromUrl,
 	pickExt,
@@ -22,19 +20,6 @@ test("sanitizeTitle falls back to clip when empty", () => {
 });
 test("buildFilename composes title and timestamp", () => {
 	assert.equal(buildFilename("Nice Art", 1722180000000), "Nice Art-1722180000000.png");
-});
-test("buildUploadBody shapes the API payload", () => {
-	const b = buildUploadBody({ imageBase64: "AAA", title: "T", sourceUrl: "https://x.com/p", folder: "灵感库", now: 5 });
-	assert.deepEqual(b, { imageBase64: "AAA", filename: "T-5.png", folder: "灵感库", tags: [], sourceUrl: "https://x.com/p", sourceTitle: "T" });
-});
-test("friendlyError maps network failure to Obsidian-closed message", () => {
-	assert.match(friendlyError({ networkError: true }), /Obsidian（creation-flywheel）没开/);
-});
-test("friendlyError maps 401 to key mismatch message", () => {
-	assert.match(friendlyError({ status: 401 }), /钥匙对不上/);
-});
-test("friendlyError default message", () => {
-	assert.match(friendlyError({ status: 500 }), /没存上，重试一下/);
 });
 test("extFromContentType maps known types and strips params", () => {
 	assert.equal(extFromContentType("image/gif"), "gif");
@@ -60,10 +45,6 @@ test("pickExt prefers content-type, falls back to url, then null (never a fake e
 test("buildFilename honors ext parameter and defaults to png", () => {
 	assert.equal(buildFilename("T", 5, "gif"), "T-5.gif");
 	assert.equal(buildFilename("T", 5), "T-5.png");
-});
-test("buildUploadBody carries ext into filename", () => {
-	const b = buildUploadBody({ imageBase64: "A", title: "T", sourceUrl: "u", folder: "F", now: 5, ext: "mp4" });
-	assert.equal(b.filename, "T-5.mp4");
 });
 test("byteLengthFromBase64 computes exact decoded size", () => {
 	// "A" -> "QQ==", "AB" -> "QUI=", "ABC" -> "QUJD"
