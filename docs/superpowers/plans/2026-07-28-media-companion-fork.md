@@ -1,10 +1,10 @@
-# Media Companion Fork（文件夹白名单 + 随机瀑布流）Implementation Plan
+# Media Companion Fork（文件夹白名单）Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fork `Nick-de-Bruin/obsidian-media-companion`，加两个功能——sidecar/gallery 只扫白名单文件夹、瀑布流视图每次打开随机排序——装进 creation-flywheel vault 并准备上游 PR。
+**Goal:** Fork `Nick-de-Bruin/obsidian-media-companion`，加一个功能——sidecar/gallery 只扫白名单文件夹——装进 creation-flywheel vault 并准备上游 PR。（原第二功能"瀑布流随机排序"已于 2026-07-28 撤销：Obsidian Bases 原生 `random()` 即可实现，见 spec「改动 2 —— 已撤销」与本文件 Task 5/6 注记。）
 
-**Architecture:** 白名单 = 一个纯函数过滤器（`isWithinFolders`）插进 cache 的三个入口（初始扫描、增量更新、文件事件）；随机排序 = 每个视图实例一个随机种子 + Fisher-Yates 洗牌，接在瀑布流 rebuild 的收集循环之后。测试基建（vitest）只留在 fork，不进上游 PR 分支。
+**Architecture:** 白名单 = 一个纯函数过滤器（`isWithinFolders`）插进 cache 的三个入口（初始扫描、增量更新、文件事件）。测试基建（vitest）只留在 fork，不进上游 PR 分支。
 
 **Tech Stack:** TypeScript / esbuild（上游现有）+ vitest（fork-only）。Obsidian 插件，gallery 基于官方 Bases API。
 
@@ -360,199 +360,9 @@ cp main.js manifest.json styles.css /private/tmp/claude-501/-Users-liyachen-Docu
 
 ---
 
-### Task 5: 洗牌纯函数（TDD）
+### Task 5 & 6: 瀑布流随机排序 —— 已撤销（2026-07-28），不要实现
 
-**Files:**
-- Create: `src/util/shuffle.ts`
-- Test: `tests/shuffle.test.ts`
-
-**Interfaces:**
-- Produces: `mulberry32(seed: number): () => number`（确定性 PRNG，返回 [0,1) 浮点）；`shuffleInPlace<T>(arr: T[], rand: () => number): T[]`（Fisher-Yates，原地洗牌并返回同一数组）
-
-- [ ] **Step 1: 写失败测试**
-
-```ts
-// tests/shuffle.test.ts
-import { describe, it, expect } from "vitest";
-import { mulberry32, shuffleInPlace } from "../src/util/shuffle";
-
-describe("mulberry32", () => {
-	it("is deterministic for the same seed", () => {
-		const a = mulberry32(42), b = mulberry32(42);
-		expect([a(), a(), a()]).toEqual([b(), b(), b()]);
-	});
-	it("produces values in [0, 1)", () => {
-		const r = mulberry32(7);
-		for (let i = 0; i < 100; i++) {
-			const v = r();
-			expect(v).toBeGreaterThanOrEqual(0);
-			expect(v).toBeLessThan(1);
-		}
-	});
-});
-
-describe("shuffleInPlace", () => {
-	const base = () => Array.from({ length: 10 }, (_, i) => i);
-	it("keeps exactly the same elements", () => {
-		const arr = shuffleInPlace(base(), mulberry32(1));
-		expect([...arr].sort((x, y) => x - y)).toEqual(base());
-	});
-	it("is deterministic for the same seed", () => {
-		expect(shuffleInPlace(base(), mulberry32(5))).toEqual(shuffleInPlace(base(), mulberry32(5)));
-	});
-	it("differs across different seeds", () => {
-		expect(shuffleInPlace(base(), mulberry32(1))).not.toEqual(shuffleInPlace(base(), mulberry32(2)));
-	});
-});
-```
-
-- [ ] **Step 2: 运行确认失败**
-
-Run: `npm test`
-Expected: FAIL — cannot resolve `../src/util/shuffle`。
-
-- [ ] **Step 3: 实现**
-
-```ts
-// src/util/shuffle.ts
-/**
- * Mulberry32: a small, fast, deterministic PRNG. Used so a shuffled view
- * keeps a stable order for the lifetime of one view instance.
- */
-export function mulberry32(seed: number): () => number {
-	let a = seed >>> 0;
-	return () => {
-		a = (a + 0x6D2B79F5) >>> 0;
-		let t = a;
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
-
-/**
- * Fisher-Yates shuffle using the provided random source. Mutates and
- * returns the same array.
- */
-export function shuffleInPlace<T>(arr: T[], rand: () => number): T[] {
-	for (let i = arr.length - 1; i > 0; i--) {
-		const j = Math.floor(rand() * (i + 1));
-		[arr[i], arr[j]] = [arr[j], arr[i]];
-	}
-	return arr;
-}
-```
-
-- [ ] **Step 4: 运行确认通过**
-
-Run: `npm test`
-Expected: 全部 PASS。
-
-- [ ] **Step 5: 两个 commit（实现与测试分开）**
-
-```bash
-git add src/util/shuffle.ts
-git commit -m "feat: add seeded shuffle utility for view ordering"
-git add tests/shuffle.test.ts
-git commit -m "test(fork): cover shuffle utility"
-```
-
----
-
-### Task 6: 瀑布流视图接入 Shuffle 开关
-
-**Files:**
-- Modify: `src/views/waterfall-bases-view.ts`（类字段区约 39-50 行、`onDataUpdated()` 约 96-125 行、收集循环后约 240 行、`getWaterfallViewOptions()` 的 "Search" group 之前）
-
-**Interfaces:**
-- Consumes: Task 5 的 `mulberry32` / `shuffleInPlace`
-- Produces: Bases 瀑布流视图配置项 `shuffleOrder`（toggle，默认 false）；开启后每次打开视图首屏顺序随机、同一实例内滚动稳定
-
-- [ ] **Step 1: import + 实例种子字段**
-
-文件顶部加：
-
-```ts
-import { mulberry32, shuffleInPlace } from "../util/shuffle";
-```
-
-类字段区（`private gap = 8;` 附近）加：
-
-```ts
-	// One seed per view instance: each open gets a fresh order, while
-	// scrolling within the same instance stays stable.
-	private shuffleSeed = Math.floor(Math.random() * 0xffffffff);
-```
-
-- [ ] **Step 2: onDataUpdated 读取配置并纳入指纹**
-
-`onDataUpdated()` 中 `const searchQuery = ...` 行之后加：
-
-```ts
-		const shuffleOrder = this.config.get("shuffleOrder") === true;
-```
-
-现有指纹行：
-
-```ts
-		const fingerprint = `${dataIds}|${filterColor}|${colorThreshold}|${filterShape}|${filterMinWidth}|${filterMaxWidth}|${filterMinHeight}|${filterMaxHeight}|${searchQuery}`;
-```
-
-末尾追加 `|${shuffleOrder}`（保证开关切换触发完整 rebuild）：
-
-```ts
-		const fingerprint = `${dataIds}|${filterColor}|${colorThreshold}|${filterShape}|${filterMinWidth}|${filterMaxWidth}|${filterMinHeight}|${filterMaxHeight}|${searchQuery}|${shuffleOrder}`;
-```
-
-- [ ] **Step 3: 收集循环后洗牌**
-
-在 rebuild 路径中，`for (const group of this.data.groupedData)` 收集循环结束、后续布局/定位逻辑开始之前，加：
-
-```ts
-		if (shuffleOrder) {
-			shuffleInPlace(this.layoutItems, mulberry32(this.shuffleSeed));
-		}
-```
-
-（锚点判断：该循环把条目填进 `this.layoutItems`；洗牌必须发生在任何 `col/x/y` 计算之前。）
-
-- [ ] **Step 4: 视图配置加 toggle**
-
-`getWaterfallViewOptions()` 返回数组中，"Search" group 之前插入：
-
-```ts
-		{
-			type: "group",
-			displayName: "Order",
-			items: [
-				{
-					type: "toggle",
-					key: "shuffleOrder",
-					displayName: "Shuffle on open",
-					default: false,
-				},
-			],
-		},
-```
-
-（若 tsc 报 toggle 类型不存在，查 `obsidian-typings` 中 Bases view option 的合法 type 列表，用其布尔开关类型等价替换——判断标准：设置面板出现一个开关，`config.get("shuffleOrder")` 返回布尔。）
-
-- [ ] **Step 5: 构建 + 全量测试**
-
-Run: `npm run build && npm test`
-Expected: 全绿。
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/views/waterfall-bases-view.ts
-git commit -m "feat: optional shuffle-on-open ordering for waterfall view"
-```
-
-- [ ] **Step 7: 手动验证（用户参与，复用 Task 4 dev vault）**
-
-重新 `cp main.js` 到 dev vault 插件目录，往 `Inspiration/` 放约 10 张图。请用户：重载插件 → 瀑布流视图设置里开 "Shuffle on open" → 关闭视图再打开，重复两次。
-验收：两次打开首屏顺序不同；同一次打开内上下滚动顺序不跳变；关掉开关后恢复 Bases 原生排序。
+原 Task 5（mulberry32 + Fisher-Yates 洗牌纯函数）与 Task 6（瀑布流视图 Shuffle 开关）已整体撤销：Obsidian Bases 原生 `random()` 公式即可实现同等效果（`.base` 里配 `formulas: {shuffle: random()}` + `groupBy: {property: formula.shuffle}`），实测通过。fork 中曾经落地的实现已 revert（见主仓 commit 7917a00），对应上游 PR 与 issue 一并撤回。详见 spec「改动 2：瀑布流随机排序 —— 已撤销」。**执行本计划时跳过此节，不要重建该功能。**
 
 ---
 
@@ -563,7 +373,7 @@ git commit -m "feat: optional shuffle-on-open ordering for waterfall view"
 - Create: `/Users/liyachen/Documents/creation-flywheel/灵感库/`（文件夹）+ `灵感库/灵感库.base`（Bases 视图文件，用户在 GUI 创建）
 
 **Interfaces:**
-- Consumes: Task 4/6 构建出的 main.js
+- Consumes: Task 4 构建出的 main.js
 - Produces: spec DoD 第 3、4 条通过的可用灵感库（收的链路要等计划 2 的扩展）
 
 - [ ] **Step 1: 快照 + 部署**
@@ -578,7 +388,7 @@ cp /Users/liyachen/Documents/fang/obsidian-media-companion/main.js /Users/liyach
 
 - [ ] **Step 2: 用户在 Obsidian 里配置**
 
-请用户在 creation-flywheel：启用 Media Companion → 设置：Included folders = `灵感库`；Enable API server = on；API key 填一个随机串（用户自己生成保存，**不要发给我**）→ 新建 Base（`灵感库/灵感库.base`）→ 视图切到 Media Companion 的 waterfall → filter 设为 `file.folder` 包含 `灵感库` → 开 "Shuffle on open"。
+请用户在 creation-flywheel：启用 Media Companion → 设置：Included folders = `灵感库`；Enable API server = on；API key 填一个随机串（用户自己生成保存，**不要发给我**）→ 新建 Base（`灵感库/灵感库.base`）→ 视图切到 Media Companion 的 waterfall → filter 设为 `file.folder` 包含 `灵感库` → 随机排序用 Bases 原生公式：`formulas: {shuffle: random()}` + `groupBy: {property: formula.shuffle}`（Shuffle 插件开关已撤销）。
 
 - [ ] **Step 3: 验收（对照 spec DoD）**
 
@@ -598,12 +408,12 @@ cd /Users/liyachen/Documents/creation-flywheel && git add -A && git commit -m "f
 ### Task 8: 上游 PR 准备（用户把关后才推送）
 
 **Files:**
-- Create: fork 上两个分支 `feat/folder-whitelist`、`feat/shuffle-on-open`
+- Create: fork 上一个分支 `feat/folder-whitelist`（shuffle 分支已随功能撤销取消）
 
 **Interfaces:**
-- Consumes: Task 3/4 的 whitelist commits、Task 5/6 的 shuffle commits（`git log --oneline` 确认 hash）
+- Consumes: Task 3/4 的 whitelist commits（`git log --oneline` 确认 hash）
 
-- [ ] **Step 1: 从 upstream/master 切两个纯功能分支**
+- [ ] **Step 1: 从 upstream/master 切纯功能分支**
 
 ```bash
 cd /Users/liyachen/Documents/fang/obsidian-media-companion && git fetch upstream
@@ -611,22 +421,19 @@ git checkout -b feat/folder-whitelist upstream/master
 # cherry-pick Task 3 的 folderFilter 实现 commit 与 Task 4 的接线 commit（hash 以 git log 为准）
 git cherry-pick <folderFilter-impl-hash> <whitelist-wiring-hash>
 npm run build   # 确认纯功能分支独立可构建
-git checkout -b feat/shuffle-on-open upstream/master
-git cherry-pick <shuffle-impl-hash> <waterfall-wiring-hash>
-npm run build
 git checkout master
 ```
 
-Expected: 两个分支各自构建通过，且都不含 vitest/tests（`git diff upstream/master --stat` 里不出现 tests/ 或 package.json 的 vitest 行）。
+Expected: 分支构建通过，且不含 vitest/tests（`git diff upstream/master --stat` 里不出现 tests/ 或 package.json 的 vitest 行）。
 
 - [ ] **Step 2: 起草 PR 文案（英文）并交用户审阅**
 
-whitelist PR 挂 issue #26（标题示例 `feat: folder whitelist to limit media scanning (closes #26)`，正文说明：empty = current behavior、三个接线点、不删除既有 sidecar）；shuffle 先开 issue 说明动机（random resurfacing for inspiration libraries）再提 PR。文案写好后**先贴给用户看，用户点头后**才 `git push origin` + `gh pr create`（对外发布动作，逐个确认）。
+whitelist PR 挂 issue #26（标题示例 `feat: folder whitelist to limit media scanning (closes #26)`，正文说明：empty = current behavior、三个接线点、不删除既有 sidecar）。文案写好后**先贴给用户看，用户点头后**才 `git push origin` + `gh pr create`（对外发布动作，逐个确认）。
+（spec 2026-07-28 修订：此 PR 顺延到扩展做完、整条链路实测过之后再提，让 PR 带着实战验证出门。）
 
 ---
 
 ## Self-Review 记录
 
-- Spec 覆盖：fork 两改动（Task 3-6）、部署配置（Task 7）、上游 PR 策略（Task 8）、Obsidian 版本前置（Task 0）均有任务；spec 其余部分属计划 2/3
-- 类型一致：`isWithinFolders(path, folders)` / `normalizeFolders(raw)` / `mulberry32(seed)` / `shuffleInPlace(arr, rand)` 各任务引用一致；settings 字段统一 `includedFolders`
-- 已知不确定点（已在任务内给出判断标准，不是占位符）：Bases 视图 option 的 toggle 具体 type 名（Task 6 Step 4 附替代路径）；洗牌插入点以「收集循环后、定位计算前」为锚（Task 6 Step 3）
+- Spec 覆盖：fork 白名单改动（Task 3-4）、部署配置（Task 7）、上游 PR 策略（Task 8）、Obsidian 版本前置（Task 0）均有任务；随机排序改用 Bases 原生 random()（Task 5/6 已撤销）；spec 其余部分属计划 2/3
+- 类型一致：`isWithinFolders(path, folders)` / `normalizeFolders(raw)` 各任务引用一致；settings 字段统一 `includedFolders`

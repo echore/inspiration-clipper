@@ -25,7 +25,7 @@
 [Media Companion fork @ localhost:27124]（跑在 creation-flywheel vault 里）
     ├── 图片写入 灵感库/，自动生成 sidecar .md
     ├── fork 改动 1：文件夹白名单（只扫指定文件夹）
-    └── fork 改动 2：瀑布流视图随机排序（每次打开重洗）
+    └── 随机排序：Bases 原生 random() 公式实现，无需 fork 改动（见「改动 2 —— 已撤销」）
             ▼
 creation-flywheel/灵感库/
     ├── 手动：Obsidian 里直接在 sidecar 上打原生标签
@@ -68,7 +68,7 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 ### 行为
 
 - **工具栏点击 / 快捷键** → 页面上区域框选 → 截图直接 POST 到默认文件夹 → 右下角 toast「已存入灵感库」。**全程零弹窗、零决策**（capture first, categorize second）
-- **右键网页图片** → 菜单「存入灵感库」→ 拉取原图（原始分辨率）POST 入库
+- **右键网页图片 / 视频** → 菜单「存入灵感库」→ 拉取原件（原始分辨率，含 gif 与直链视频，按真实格式存扩展名）POST 入库（2026-07-28 实施中扩展：原 spec 只写了图片）。限制：单文件上限 50MB；blob: 流媒体存不了原件，提示改用框选截帧；认不出格式的文件拒存并提示，绝不以错误扩展名假成功入库
 - 每张图自动带 `sourceUrl` + `sourceTitle`（sidecar 里可回溯来源）
 - 标签捕获时一律不打，交给后置的手动/AI 流程
 
@@ -103,7 +103,7 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 ## 实施顺序
 
 0. 前置检查：creation-flywheel 的 Obsidian ≥ 1.11.5；vault 先 git commit
-1. Media Companion fork（白名单 + 随机排序），装进 creation-flywheel，验证 gallery
+1. Media Companion fork（白名单；随机排序已改用 Bases 原生 random()），装进 creation-flywheel，验证 gallery
 2. 灵感 clipper 扩展 MV3，打通 Chrome → 灵感库 链路
 3. /tag-gallery skill + SOP 模板
 4. 上游 PR ×1（原计划两个；随机排序那个因原生可实现已撤销。2026-07-28 用户决定：顺延到扩展做完、整条链路实测过之后再提，让 PR 带着实战验证出门）
@@ -113,7 +113,7 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 1. Chrome 工具栏点击 → 框选 → 图片出现在 `creation-flywheel/灵感库/`，带 sidecar，sidecar 记录来源 URL
 2. 右键网页图片 → 存入 → 原图（非缩放渲染图）入库
 3. `Images/` 里的笔记贴图不出现在 gallery、不生成 sidecar
-4. 瀑布流视图开启 Shuffle 后，连续打开两次首屏顺序不同
+4. 瀑布流视图（`.base` 配 `random()` 公式）连续打开两次首屏顺序不同
 5. Obsidian 关闭时捕获 → 收到明确中文报错，无静默丢失
 6. /tag-gallery 跑完后，无标签 sidecar 获得 SOP 内维度的标签；已有人工标签的 sidecar 不被改动
 7. 全流程无任何数据离开本机（除 obsidian-git push 到用户自己的 GitHub）
