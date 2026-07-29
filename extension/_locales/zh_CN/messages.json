@@ -21,6 +21,7 @@
   "popupNotConfigured":         { "message": "还没配置目的地" },
   "popupOpenOptions":           { "message": "去配置" },
   "popupCaptureButton":         { "message": "框选截图" },
+  "popupSettings":              { "message": "设置" },
   "okSaved":                    { "message": "已存入 $1 ✓", "placeholders": { "dest": { "content": "$1" } } },
   "okSavedDegraded":            { "message": "文件较大，已改存 $1（$2 装不下）", "placeholders": { "to": { "content": "$1" }, "from": { "content": "$2" } } },
   "errNoDestination":           { "message": "还没设置存到哪儿，点扩展图标去配置" },

@@ -66,6 +66,12 @@ openOptionsBtn.addEventListener("click", () => {
 	chrome.runtime.openOptionsPage();
 });
 
+// Settings button (always visible)
+const settingsBtn = document.querySelector("#settings");
+settingsBtn.addEventListener("click", () => {
+	chrome.runtime.openOptionsPage();
+});
+
 // Capture region
 captureBtn.addEventListener("click", () => {
 	chrome.runtime.sendMessage({ action: "inspStartCapture" });

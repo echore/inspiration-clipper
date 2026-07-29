@@ -21,6 +21,7 @@
   "popupNotConfigured":         { "message": "No destination set yet" },
   "popupOpenOptions":           { "message": "Configure" },
   "popupCaptureButton":         { "message": "Capture region" },
+  "popupSettings":              { "message": "Settings" },
   "okSaved":                    { "message": "Saved to $1 ✓", "placeholders": { "dest": { "content": "$1" } } },
   "okSavedDegraded":            { "message": "Too large for $2 — saved to $1 instead", "placeholders": { "to": { "content": "$1" }, "from": { "content": "$2" } } },
   "errNoDestination":           { "message": "No destination set yet — click the extension icon to configure one" },
