@@ -1,18 +1,19 @@
 {
 	"manifest_version": 3,
-	"name": "灵感 Clipper",
+	"name": "__MSG_extName__",
 	"version": "0.1.0",
+	"default_locale": "zh_CN",
 	"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2aBY4ePiBriqj2gLKsbwYZ2efCeDr6oPjVyNh5RM0bkJkUn/v/LN2EJkzl6XcDgcPV0mOzOyCVeG60r8G3kqiEOsKdH5IG6opeqfhOeuIHZ5QNn3kSkmcAoMBZG1mEym5cqczGMJPaXX42UMWMknHSCGrBYY5FXdhDmn+TiDC9VPDS1FOMASmXRRf3bzlhwmnMMt01u7eg+KCb6wkqZHK2Zmfap+ikMd1flQIvIek9TSI2QKk5eH5Lj3LUuWfJjo7BmQLpZ060flrvZ1lwwaZH5ShwUSHBRQgGG+itKDfrOJfn780Q8a/32xfL0tgmbqmOC0xAC2tkHoN8CsPEe7KQIDAQAB",
-	"description": "框选或右键，一键把灵感存进 Obsidian 灵感库。",
+	"description": "__MSG_extDescription__",
 	"permissions": ["contextMenus", "activeTab", "scripting", "storage"],
 	"host_permissions": ["https://api.notion.com/*"],
 	"optional_host_permissions": ["<all_urls>"],
 	"background": { "service_worker": "background.js", "type": "module" },
-	"action": { "default_title": "灵感 Clipper：框选截图", "default_popup": "popup/popup.html" },
+	"action": { "default_title": "__MSG_actionTitle__", "default_popup": "popup/popup.html" },
 	"commands": {
 		"capture-region": {
 			"suggested_key": { "default": "Alt+Shift+S" },
-			"description": "框选截图存入灵感库"
+			"description": "__MSG_cmdCaptureRegion__"
 		}
 	},
 	"icons": { "128": "icon128.png" }

@@ -43,7 +43,7 @@ export async function saveToLibrary(tabId, { base64, ext = "png", title, sourceU
 		return;
 	}
 	if (decision.error === "tooLargeForAll") {
-		await showToast(tabId, t("errTooLarge", [mb(decision.byteLength), mb(decision.maxFileSize)]), false);
+		await showToast(tabId, t("errTooLarge", [mb(decision.byteLength), t("dest_" + settings.chain[0]), mb(decision.maxFileSize)]), false);
 		return;
 	}
 
@@ -71,9 +71,9 @@ async function startRegionCapture(tab) {
 	} catch (e) {
 		const msg = e?.message ?? "";
 		if (/quota|per second|MAX_CAPTURE/i.test(msg)) {
-			await showToast(tab.id, "截太快了，等一秒再试", false);
+			await showToast(tab.id, t("captureQuotaExceeded"), false);
 		} else {
-			await showToast(tab.id, "这个页面截不了图（浏览器保护页），换个页面试试", false);
+			await showToast(tab.id, t("captureProtectedPage"), false);
 		}
 		return;
 	}
@@ -83,7 +83,7 @@ async function startRegionCapture(tab) {
 	} catch (e) {
 		// capture worked but injection didn't (file:// without access, tab navigated
 		// away mid-flight) — showToast's badge fallback covers uninjectable pages.
-		await showToast(tab.id, "这个页面框选不了（脚本进不去），换个页面试试", false);
+		await showToast(tab.id, t("captureInjectFailed"), false);
 	}
 }
 
@@ -130,7 +130,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				await saveToLibrary(tabId, { base64: b64, ext: "png", title: msg.title, sourceUrl: msg.source_url });
 			} catch (e) {
 				await chrome.tabs.sendMessage(tabId, { action: "inspCaptureDone" }).catch(() => {});
-				await showToast(tabId, "没存上，重试一下；连续失败请点扩展图标看状态", false);
+				await showToast(tabId, t("captureRegionFailed"), false);
 			}
 		})();
 	}
@@ -146,7 +146,7 @@ chrome.runtime.onInstalled.addListener(() => {
 	chrome.contextMenus.removeAll(() => {
 		chrome.contextMenus.create({
 			id: "insp-save-image",
-			title: "存入灵感库",
+			title: t("ctxSaveImage"),
 			contexts: ["image", "video"],
 		});
 	});
@@ -176,24 +176,24 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 	(async () => {
 		// MSE-driven <video> (and some <source> setups) expose no srcUrl
 		if (!info.srcUrl) {
-			await showToast(tab.id, "这个媒体拿不到地址，存不了原件；用框选截一帧吧（Alt+Shift+S）", false);
+			await showToast(tab.id, t("captureMediaNoUrl"), false);
 			return;
 		}
 		if (info.srcUrl.startsWith("blob:")) {
-			await showToast(tab.id, "这是流媒体，存不了原件；用框选截一帧吧（Alt+Shift+S）", false);
+			await showToast(tab.id, t("captureStreamingMedia"), false);
 			return;
 		}
 		// data: URL 的图直接取，无需权限（仅支持 base64 编码；其他编码如裸 svg+xml 不解析）
 		if (info.srcUrl.startsWith("data:")) {
 			const match = info.srcUrl.match(/^data:([^;,]+)?;base64,/);
 			if (!match) {
-				await showToast(tab.id, "这种内嵌图存不了，用框选截图吧（Alt+Shift+S）", false);
+				await showToast(tab.id, t("captureEmbeddedImage"), false);
 				return;
 			}
 			const mime = match[1] || null;
 			const dataExt = extFromContentType(mime);
 			if (!dataExt) {
-				await showToast(tab.id, "认不出这张图的格式，用框选截图吧（Alt+Shift+S）", false);
+				await showToast(tab.id, t("captureImageFormatUnknown"), false);
 				return;
 			}
 			const b64 = info.srcUrl.slice(match[0].length);
@@ -210,19 +210,19 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 		try {
 			origin = new URL(info.srcUrl).origin + "/*";
 		} catch {
-			await showToast(tab.id, "这张图的地址不认识，用框选截图吧（Alt+Shift+S）", false);
+			await showToast(tab.id, t("captureUrlUnrecognized"), false);
 			return;
 		}
 		const granted = await chrome.permissions.request({ origins: [origin] }).catch(() => false);
 		if (!granted) {
-			await showToast(tab.id, "没拿到读图权限，用框选截图吧（Alt+Shift+S）", false);
+			await showToast(tab.id, t("captureNoPermission"), false);
 			return;
 		}
 		try {
 			const { b64, contentType, finalUrl } = await fetchMediaAsBase64(info.srcUrl);
 			const ext = pickExt(contentType, finalUrl);
 			if (!ext) {
-				await showToast(tab.id, "认不出这个文件的格式，用框选截图吧（Alt+Shift+S）", false);
+				await showToast(tab.id, t("captureFileFormatUnknown"), false);
 				return;
 			}
 			await saveToLibrary(tab.id, {
@@ -233,10 +233,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 			});
 		} catch (e) {
 			if (e?.tooLarge) {
-				await showToast(tab.id, "文件太大（超过 50MB），存不了；试试框选截图（Alt+Shift+S）", false);
+				await showToast(tab.id, t("captureFileTooLarge"), false);
 				return;
 			}
-			await showToast(tab.id, "原图拿不到（站点防盗链），用框选截图吧（Alt+Shift+S）", false);
+			await showToast(tab.id, t("captureAntiLeech"), false);
 		}
 	})();
 });
