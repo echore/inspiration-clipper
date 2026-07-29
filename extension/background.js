@@ -43,8 +43,14 @@ async function startRegionCapture(tab) {
 		}
 		return;
 	}
-	await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content-overlay.js"] });
-	await chrome.tabs.sendMessage(tab.id, { action: "inspShowOverlay", dataUrl });
+	try {
+		await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content-overlay.js"] });
+		await chrome.tabs.sendMessage(tab.id, { action: "inspShowOverlay", dataUrl });
+	} catch (e) {
+		// capture worked but injection didn't (file:// without access, tab navigated
+		// away mid-flight) — showToast's badge fallback covers uninjectable pages.
+		await showToast(tab.id, "这个页面框选不了（脚本进不去），换个页面试试", false);
+	}
 }
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
@@ -92,7 +98,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 	}
 
 	if (msg?.action === "inspStartCapture") {
-		chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => startRegionCapture(tab));
+		chrome.tabs.query({ active: true, currentWindow: true })
+			.then(([tab]) => startRegionCapture(tab))
+			.catch((e) => console.warn("[insp] start capture failed:", e));
 	}
 });
 
