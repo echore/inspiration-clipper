@@ -27,3 +27,13 @@ test("skips a destination with unknown capabilities rather than guessing", () =>
 	const r = chooseDestination({ byteLength: 1 }, ["mystery", "obsidian"], caps);
 	assert.deepEqual(r, { adapterId: "obsidian", degradedFrom: "mystery" });
 });
+test("attempts preferred destination when all have unknown capabilities (lets adapter surface precise error)", () => {
+	const r = chooseDestination({ byteLength: 1 }, ["mystery", "unknown"], {});
+	assert.deepEqual(r, { adapterId: "mystery", degradedFrom: null });
+});
+test("guards against null/undefined capsById and attempts chain[0]", () => {
+	const r = chooseDestination({ byteLength: 1 }, ["fallback"], null);
+	assert.deepEqual(r, { adapterId: "fallback", degradedFrom: null });
+	const r2 = chooseDestination({ byteLength: 1 }, ["fallback"], undefined);
+	assert.deepEqual(r2, { adapterId: "fallback", degradedFrom: null });
+});
