@@ -10,6 +10,7 @@
 	"optional_host_permissions": ["<all_urls>"],
 	"background": { "service_worker": "background.js", "type": "module" },
 	"action": { "default_title": "__MSG_actionTitle__", "default_popup": "popup/popup.html" },
+	"options_page": "options/options.html",
 	"commands": {
 		"capture-region": {
 			"suggested_key": { "default": "Alt+Shift+S" },

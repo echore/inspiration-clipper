@@ -1,22 +1,98 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<style>
-	body { width: 260px; margin: 0; padding: 16px; font: 14px/1.6 system-ui, sans-serif; }
-	.light { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
-	.ok { background: #16a34a; } .bad { background: #dc2626; }
-	#hint { color: #666; font-size: 12px; margin: 8px 0 12px; }
-	button { width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #6366f1; color: #fff; font-size: 14px; cursor: pointer; }
-	button:disabled { background: #c7c9f5; }
-	.kbd { color: #999; font-size: 12px; text-align: center; margin-top: 8px; }
-</style>
+	<meta charset="utf-8">
+	<style>
+		body {
+			width: 280px;
+			margin: 0;
+			padding: 12px;
+			font: 14px/1.5 system-ui, sans-serif;
+		}
+		#destinations {
+			margin-bottom: 12px;
+		}
+		.dest-row {
+			display: flex;
+			align-items: center;
+			padding: 6px 0;
+			font-size: 13px;
+		}
+		.dest-light {
+			display: inline-block;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			margin-right: 8px;
+			flex-shrink: 0;
+		}
+		.dest-light.ok {
+			background: #16a34a;
+		}
+		.dest-light.bad {
+			background: #dc2626;
+		}
+		.dest-name {
+			flex: 1;
+		}
+		.dest-error {
+			color: #666;
+			font-size: 12px;
+			margin-left: 16px;
+			margin-top: 2px;
+		}
+		#notConfigured {
+			color: #666;
+			font-size: 13px;
+			padding: 8px 0;
+		}
+		#openOptions {
+			width: 100%;
+			padding: 8px;
+			margin-top: 8px;
+			background: #6366f1;
+			color: #fff;
+			border: 0;
+			border-radius: 4px;
+			font-size: 13px;
+			cursor: pointer;
+		}
+		#openOptions:hover {
+			background: #4f46e5;
+		}
+		#capture {
+			width: 100%;
+			padding: 10px;
+			margin-top: 12px;
+			border: 0;
+			border-radius: 8px;
+			background: #6366f1;
+			color: #fff;
+			font-size: 14px;
+			cursor: pointer;
+			font-weight: 500;
+		}
+		#capture:disabled {
+			background: #c7c9f5;
+		}
+		#capture:hover:not(:disabled) {
+			background: #4f46e5;
+		}
+		.kbd {
+			color: #999;
+			font-size: 11px;
+			text-align: center;
+			margin-top: 6px;
+		}
+	</style>
 </head>
 <body>
-	<div><span id="light" class="light bad"></span><span id="status">检查连接中…</span></div>
-	<div id="hint"></div>
-	<button id="capture" disabled>框选截图</button>
-	<div class="kbd">快捷键 Alt+Shift+S</div>
+	<div id="destinations"></div>
+	<div id="notConfigured" style="display: none;" data-i18n="popupNotConfigured"></div>
+	<button id="openOptions" style="display: none;" data-i18n="popupOpenOptions"></button>
+	<button id="capture" disabled data-i18n="cmdCaptureRegion"></button>
+	<div class="kbd">Alt+Shift+S</div>
+
 	<script type="module" src="popup.js"></script>
 </body>
 </html>

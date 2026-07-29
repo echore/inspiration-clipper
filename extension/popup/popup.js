@@ -1,29 +1,72 @@
-// extension/popup/popup.js
-const light = document.getElementById("light");
-const status = document.getElementById("status");
-const hint = document.getElementById("hint");
-const btn = document.getElementById("capture");
+import { loadSettings } from "../lib/settings.js";
+import { ADAPTERS } from "../lib/adapters/index.js";
+import { t } from "../lib/i18n.js";
 
-chrome.runtime.sendMessage({ action: "inspPing" }, (resp) => {
-	if (resp?.ok) {
-		light.className = "light ok";
-		status.textContent = "已连接 Obsidian 灵感库";
-		hint.textContent = "";
-		btn.disabled = false;
-		return;
-	}
-	light.className = "light bad";
-	status.textContent = "连不上灵感库";
-	if (!resp && chrome.runtime.lastError) {
-		// No receiver at all — the service worker never registered its listeners,
-		// most likely because extension/config.local.js is missing (fresh clone).
-		hint.textContent = "还没配置目的地：临时用 service worker console 写入 settings（配置页即将上线）";
-	} else {
-		hint.textContent = "打开 Obsidian 的 creation-flywheel 仓库就能用；开着还不行就重开一次 Media Companion 插件。";
-	}
+// Fill in i18n text
+document.querySelectorAll("[data-i18n]").forEach((el) => {
+	el.textContent = t(el.dataset.i18n);
 });
 
-btn.addEventListener("click", () => {
+const destinationsDiv = document.querySelector("#destinations");
+const notConfiguredDiv = document.querySelector("#notConfigured");
+const openOptionsBtn = document.querySelector("#openOptions");
+const captureBtn = document.querySelector("#capture");
+
+// Load settings and render destinations
+(async () => {
+	const settings = await loadSettings();
+
+	if (!settings.chain || settings.chain.length === 0) {
+		// No destinations configured
+		notConfiguredDiv.style.display = "block";
+		openOptionsBtn.style.display = "block";
+		captureBtn.disabled = true;
+		return;
+	}
+
+	// Test each adapter in the chain
+	for (const adapterId of settings.chain) {
+		const adapter = ADAPTERS[adapterId];
+		if (!adapter) continue;
+
+		const cfg = settings.byAdapter[adapterId];
+		const result = await adapter.test(cfg);
+
+		const destName = t(`dest_${adapterId}`);
+		const row = document.createElement("div");
+
+		if (result.ok) {
+			row.innerHTML = `
+				<div class="dest-row">
+					<span class="dest-light ok"></span>
+					<span class="dest-name">${destName}</span>
+				</div>
+			`;
+		} else {
+			const errorMsg = t(result.errorKey ?? "errGeneric");
+			row.innerHTML = `
+				<div class="dest-row">
+					<span class="dest-light bad"></span>
+					<span class="dest-name">${destName}</span>
+				</div>
+				<div class="dest-error">${errorMsg}</div>
+			`;
+		}
+
+		destinationsDiv.appendChild(row);
+	}
+
+	// Enable capture if at least one destination is OK
+	captureBtn.disabled = false;
+})();
+
+// Open options page
+openOptionsBtn.addEventListener("click", () => {
+	chrome.runtime.openOptionsPage();
+});
+
+// Capture region
+captureBtn.addEventListener("click", () => {
 	chrome.runtime.sendMessage({ action: "inspStartCapture" });
 	window.close();
 });

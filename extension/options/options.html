@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title data-i18n="extName"></title>
+	<style>
+		body {
+			font-family: system-ui, -apple-system, sans-serif;
+			max-width: 600px;
+			margin: 40px auto;
+			padding: 20px;
+			line-height: 1.6;
+			color: #333;
+		}
+		fieldset {
+			border: 1px solid #ddd;
+			border-radius: 8px;
+			padding: 16px;
+			margin: 20px 0;
+		}
+		legend {
+			padding: 0 8px;
+			font-weight: 600;
+		}
+		label {
+			display: block;
+			margin-top: 12px;
+			font-size: 14px;
+		}
+		input {
+			width: 100%;
+			padding: 8px;
+			margin-top: 4px;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			font-size: 14px;
+			box-sizing: border-box;
+		}
+		input[type="password"] {
+			font-family: monospace;
+			font-size: 13px;
+		}
+		select {
+			width: 100%;
+			padding: 8px;
+			margin-top: 4px;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			font-size: 14px;
+			box-sizing: border-box;
+		}
+		.dest-group {
+			margin-bottom: 20px;
+		}
+		.form-row {
+			display: flex;
+			gap: 12px;
+			align-items: flex-start;
+			margin-top: 12px;
+		}
+		.test-btn {
+			padding: 8px 12px;
+			background: #6366f1;
+			color: #fff;
+			border: 0;
+			border-radius: 4px;
+			font-size: 13px;
+			cursor: pointer;
+			white-space: nowrap;
+			align-self: flex-end;
+		}
+		.test-btn:hover {
+			background: #4f46e5;
+		}
+		.status-light {
+			display: inline-block;
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			margin-right: 6px;
+			margin-top: 2px;
+		}
+		.status-light.ok {
+			background: #16a34a;
+		}
+		.status-light.bad {
+			background: #dc2626;
+		}
+		.status-text {
+			font-size: 13px;
+			color: #666;
+		}
+		.save-btn {
+			width: 100%;
+			padding: 12px;
+			background: #16a34a;
+			color: #fff;
+			border: 0;
+			border-radius: 4px;
+			font-size: 16px;
+			cursor: pointer;
+			font-weight: 600;
+			margin-top: 24px;
+		}
+		.save-btn:hover {
+			background: #15803d;
+		}
+		#saved {
+			text-align: center;
+			margin-top: 8px;
+			color: #16a34a;
+			font-size: 13px;
+			min-height: 20px;
+		}
+	</style>
+</head>
+<body>
+	<h1 data-i18n="extName"></h1>
+
+	<form>
+		<div class="dest-group">
+			<label for="dest" data-i18n="optDest"></label>
+			<select id="dest" name="dest">
+				<option value="" data-i18n="optDestNone"></option>
+				<option value="obsidian" data-i18n="dest_obsidian"></option>
+				<option value="notion" data-i18n="dest_notion"></option>
+			</select>
+		</div>
+
+		<fieldset>
+			<legend data-i18n="optObsidianSection"></legend>
+			<label for="port" data-i18n="optPort"></label>
+			<input id="port" name="port" type="number" min="0" max="65535" value="27124">
+
+			<label for="apiKey" data-i18n="optApiKey"></label>
+			<input id="apiKey" name="apiKey" type="password">
+
+			<label for="folder" data-i18n="optFolder"></label>
+			<input id="folder" name="folder" type="text" value="灵感库">
+
+			<div class="form-row">
+				<button type="button" class="test-btn" data-test-adapter="obsidian" data-i18n="optTestConnection"></button>
+				<span class="status-text">
+					<span id="status-obsidian" class="status-light"></span>
+					<span id="status-obsidian-text"></span>
+				</span>
+			</div>
+		</fieldset>
+
+		<fieldset>
+			<legend data-i18n="optNotionSection"></legend>
+			<label for="token" data-i18n="optToken"></label>
+			<input id="token" name="token" type="password">
+
+			<label for="databaseId" data-i18n="optDatabaseId"></label>
+			<input id="databaseId" name="databaseId" type="text">
+
+			<div class="form-row">
+				<button type="button" class="test-btn" data-test-adapter="notion" data-i18n="optTestConnection"></button>
+				<span class="status-text">
+					<span id="status-notion" class="status-light"></span>
+					<span id="status-notion-text"></span>
+				</span>
+			</div>
+		</fieldset>
+
+		<button type="submit" class="save-btn" data-i18n="optSaveButton"></button>
+		<div id="saved"></div>
+	</form>
+
+	<script type="module" src="options.js"></script>
+</body>
+</html>
