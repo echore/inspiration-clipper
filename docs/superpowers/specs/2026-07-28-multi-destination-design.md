@@ -83,8 +83,8 @@
 └──────────────────────────────────────────────────
                       ↓
 ┌─ 适配器层 ────────────────────────────── 新
-│   A 族：localhost + multipart（一次请求）
-│     ObsidianAdapter → Local REST API 插件 PUT /vault/{path}
+│   A 族：localhost 单次请求
+│     ObsidianAdapter → Media Companion 插件 POST /api/upload
 │   B 族：云端 REST + 多步握手
 │     NotionAdapter → POST /v1/file_uploads
 │                   → POST /v1/file_uploads/{id}/send
@@ -138,10 +138,15 @@
 
 ### ObsidianAdapter
 
-- 依赖用户安装社区插件 [obsidian-local-rest-api](https://github.com/coddingtonbear/obsidian-local-rest-api)（README：「full CRUD on any file in your vault, **including binary files**」）
-- `PUT /vault/{path}` 写媒体文件 + 写 sidecar `.md`
+- 写入走 **Media Companion 插件自带的本地 API**（上游功能，非 fork 改动）：明文 HTTP `http://127.0.0.1:27124`，默认关闭；`GET /api/ping` 测活，`POST /api/upload` 收 `{imageBase64, filename, folder, tags, sourceUrl, sourceTitle}`，**sidecar 由 MC 自己生成**
 - `maxFileSize: Infinity`
-- **注**：原计划自写 Media Companion fork 承担写入，现已不必要——Local REST API 已经在了。Media Companion fork 的职责收窄为呈现层（文件夹白名单 + 瀑布流）。
+- **选型记录（2026-07-28，当日曾在 MC 与 obsidian-local-rest-api 之间反复，此为定论，勿再翻）**——三条轴全部指向 MC：
+  1. **最小权限（决定性）**：MC 的 API key 只能上传/列目录；LRA 的 key 有全库 CRUD（`GET /vault/` 读一切）。在"扩展被收购变恶意件"的威胁模型下，前者泄露 = 能塞文件，后者泄露 = **整个 vault 被读走**。本 spec 否掉 FSA 用的正是"写一张图不该附带读全库的权限"——LRA 同罪，不能因为它是插件就豁免
+  2. **数据一致性**：MC 在跑的 vault 里，只有从它的 API 写入，sourceUrl/sourceTitle 才能落进 sidecar，且不与 MC 的文件监听产生第二份 sidecar。"LRA 写入 + 自写 sidecar"与 MC 共存时结构性撞车
+  3. **体验**：MC 反正要装（呈现层），一个插件两职；LRA 路线要用户装第二个插件、还要手动另开明文 HTTP 端口（其默认 HTTPS 用自签证书，扩展 fetch 无法绕过）
+- LRA 降级为**将来可选的备用 adapter**（面向完全不用 MC 的用户），非第一版内容
+- 已知项：① MC API 默认端口 27124 与 LRA 默认 HTTPS 端口重合，两边均可配；② 上游 MC 无文件夹白名单（装上即全库扫描生成 sidecar），**对外分发依赖上游 [#26](https://github.com/Nick-de-Bruin/obsidian-media-companion/issues/26) 合入**（fork 已实现，PR 按计划在整链路实测后提交）；验证期自用走 fork，不受影响
+- Media Companion fork 的职责 = 呈现层（文件夹白名单）**+ 写入门（上游 API）**。本 spec 早先「收窄为呈现层」的说法作废
 
 ### NotionAdapter
 
@@ -200,7 +205,7 @@
 
 Obsidian 不可能的两个独立原因：
 
-1. `obsidian-local-rest-api` 插件页明确标注 **「Desktop only」**（同类的 Render API 插件亦然）。移动版 Obsidian 没有 Node 的 `http` 模块，起不了 HTTP 服务器。网传「改 manifest 的 `isDesktopOnly: false` 就能在手机跑」的 hack 对纯 JS 插件有时管用，对需要监听端口的插件必然失败。
+1. 移动版 Obsidian 没有 Node 的 `http` 模块，起不了 HTTP 服务器——Media Companion 的 API server 正是基于 `require("http")`，同受此限；同类插件（obsidian-local-rest-api、Render API）也都明确标注 **「Desktop only」**。网传「改 manifest 的 `isDesktopOnly: false` 就能在手机跑」的 hack 对纯 JS 插件有时管用，对需要监听端口的插件必然失败。
 2. 即便能跑，**手机上的 Obsidian 与电脑上的 vault 是两台机器**，`localhost` 不指向同一个东西。
 
 **这把架构翻了个面**：桌面上最好的目的地（本地优先）在手机上唯一不可用；手机上唯一可用的（云端）恰是体积受限的那个。必须在文档中向用户讲明——这是结构问题，不是能力缺失。
@@ -296,7 +301,7 @@ Mozilla 对 FSA 的[正式立场](https://mozilla.github.io/standards-positions/
 
 0. ~~前置实测：Notion 随机排序~~ **已完成（2026-07-28）**，结论见「组件 4」。模板亦已建成，第 6 步的 Notion 一半随之完成，剩余为接入引导文案
 1. adapter 接口 + 路由层，把现有 `upload.js` 重构进去
-2. ObsidianAdapter（Local REST API），跑通端到端
+2. ObsidianAdapter（Media Companion API），跑通端到端
 3. NotionAdapter（三步上传 + capabilities 实探），跑通端到端
 4. 降级链（Notion 超 5MB → Obsidian）
 5. i18n（`_locales` 双语）

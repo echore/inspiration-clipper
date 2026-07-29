@@ -4,9 +4,9 @@
 
 **Goal:** 把扩展现在硬编码到 Media Companion 的单一上传路径，重构成「捕获层 → 路由层 → 适配器层」三段结构，并交付 Obsidian 与 Notion 两个可用目的地、体积降级链、中英双语。
 
-**Architecture:** 捕获层继续产出 base64 + 元数据（不改），新增一个纯函数 `CaptureItem` 作为统一载体。路由层根据各 adapter 实探出的 `capabilities()` 决定投递目标，超限则降级到备选。适配器层统一四方法接口，同时套住两种形态：Obsidian 是 localhost 单次 PUT，Notion 是云端三步握手。所有决策逻辑做成纯函数放 `lib/`，I/O 包装层保持极薄，测试全部打在纯函数上。
+**Architecture:** 捕获层继续产出 base64 + 元数据（不改），新增一个纯函数 `CaptureItem` 作为统一载体。路由层根据各 adapter 实探出的 `capabilities()` 决定投递目标，超限则降级到备选。适配器层统一四方法接口，同时套住两种形态：Obsidian 是 localhost 单次 POST（Media Companion 自带 API），Notion 是云端三步握手。所有决策逻辑做成纯函数放 `lib/`，I/O 包装层保持极薄，测试全部打在纯函数上。
 
-**Tech Stack:** Chrome MV3 (service worker, ES modules)、`node --test`（无 package.json，裸跑）、`chrome.i18n` + `_locales`、Obsidian Local REST API、Notion API `2026-03-11`。
+**Tech Stack:** Chrome MV3 (service worker, ES modules)、`node --test`（无 package.json，裸跑）、`chrome.i18n` + `_locales`、Media Companion API（上游自带）、Notion API `2026-03-11`。
 
 ## Global Constraints
 
@@ -14,7 +14,7 @@
 - **不使用 File System Access API**（理由见 spec「安全立场」）。
 - **不静默失败**：任何写入失败必须有可见 toast，含原因；`showToast` 已有 badge 兜底路径，沿用。
 - **Notion API 版本固定 `Notion-Version: 2026-03-11`**。
-- **Obsidian 走明文 HTTP `http://127.0.0.1:27123`**，不走 27124 HTTPS（自签证书，扩展 fetch 无法绕过）。
+- **Obsidian 写入走 Media Companion 自带 API**（明文 HTTP `http://127.0.0.1:27124`，需在 MC 设置里启用并复制 key）。**adapter 绝不自己写 sidecar**——sidecar 由 MC 生成，双写会与其文件监听撞车。不引入 obsidian-local-rest-api（选型记录见 spec 组件 3，勿翻案）。
 - **中英双语**：所有面向用户的字符串走 `chrome.i18n.getMessage`，`_locales/en` 与 `_locales/zh_CN` 条目数必须相等。
 - **测试用 `node --test` 裸跑**（Node 24），仓库无 package.json，不要引入。
 - **纯函数与 I/O 分离**：凡带 `chrome.*` 或 `fetch` 的代码不写测试；决策逻辑必须抽成纯函数并测。
@@ -33,7 +33,7 @@
 | `extension/lib/settings.js` | `chrome.storage.local` 读写各 adapter 配置，薄包装 |
 | `extension/lib/i18n.js` | `chrome.i18n` 薄包装 + 测试环境回退 |
 | `extension/lib/adapters/index.js` | adapter 注册表 |
-| `extension/lib/adapters/obsidian.js` | Obsidian Local REST API adapter |
+| `extension/lib/adapters/obsidian.js` | Media Companion API adapter |
 | `extension/lib/adapters/notion.js` | Notion 三步上传 adapter |
 | `extension/options/options.html` / `.js` | 各 adapter 配置页 |
 | `extension/_locales/en/messages.json` | 英文文案 |
@@ -55,7 +55,7 @@
 
 | 文件 | 原因 |
 |---|---|
-| `extension/lib/upload.js` | 被 `adapters/obsidian.js` 取代；Media Companion 的 `/api/upload` 不再使用 |
+| `extension/lib/upload.js` | 逻辑并入 `adapters/obsidian.js`（同一 MC API，配置改由 chrome.storage 提供而非 config.local） |
 | `extension/config.local.js` / `.example.js` | 配置迁到 `chrome.storage`，由 options 页管理 |
 | `scripts/setup-key.sh` | 同上；key 改为用户在 options 页粘贴 |
 
@@ -308,10 +308,9 @@ exists to prevent."
   - `capabilities(cfg) => { maxFileSize: number }`（同步，返回上次 `test` 缓存或保守默认）
   - `save(item, cfg) => Promise<void>`（失败时 throw `{ errorKey, status? }`）
 - 纯函数导出（供测试）：
-  - `obsidianVaultPath(folder, filename) => string`
-  - `obsidianSidecar(item) => string`
+  - `mcUploadBody(item, folder) => object`
 
-**背景（实现者必读）：** Obsidian Local REST API 默认监听 **HTTPS 27124 且使用自签证书**，浏览器扩展的 `fetch` 无法绕过证书错误。**必须走明文 HTTP `http://127.0.0.1:27123`**，用户需在 *Settings → Local REST API → Enable HTTP server* 手动打开。`GET /` 是免鉴权的状态检查端点。写文件用 `PUT /vault/{path}`，支持二进制。
+**背景（实现者必读）：** 写入走 **Media Companion 插件自带的本地 API**（上游功能，非 fork 改动）：明文 HTTP，默认 `http://127.0.0.1:27124`，默认关闭，用户需在 MC 设置里启用并复制 API key。端点：`GET /api/ping`（测活 + 验 key）、`POST /api/upload`（JSON body `{imageBase64, filename, folder, tags, sourceUrl, sourceTitle}`）。**sidecar 由 MC 生成，adapter 绝不能自己写 sidecar**——双写会与 MC 的文件监听撞车，且来源信息只有走 API 进才落得进 sidecar。选型记录（vs Local REST API 三轴对比）见 spec「组件 3」。已知项：27124 与 obsidian-local-rest-api 默认 HTTPS 端口重合，两边均可配。现有 `extension/lib/upload.js` 就是打这套 API 的，本任务将其逻辑吸收进 adapter（配置来源从 config.local 换成传入的 cfg）。
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -320,33 +319,32 @@ exists to prevent."
 ```js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { obsidianVaultPath, obsidianSidecar } from "../extension/lib/adapters/obsidian.js";
+import { mcUploadBody } from "../extension/lib/adapters/obsidian.js";
 
-test("obsidianVaultPath joins folder and filename and percent-encodes each segment", () => {
-	assert.equal(obsidianVaultPath("灵感库", "a b.gif"), "%E7%81%B5%E6%84%9F%E5%BA%93/a%20b.gif");
-});
-test("obsidianVaultPath tolerates a folder with stray slashes", () => {
-	assert.equal(obsidianVaultPath("/inbox/", "x.png"), "inbox/x.png");
-});
-test("obsidianVaultPath handles a nested folder", () => {
-	assert.equal(obsidianVaultPath("a/b", "x.png"), "a/b/x.png");
-});
-test("obsidianSidecar emits frontmatter with source and capture time", () => {
-	const md = obsidianSidecar({
-		filename: "x-5.gif",
-		sourceUrl: "https://a.com/p",
-		sourceTitle: "Title",
-		capturedAt: 1722180000000,
+test("mcUploadBody maps a CaptureItem onto the Media Companion upload schema", () => {
+	const body = mcUploadBody(
+		{ base64: "QUJD", filename: "NiceArt-5.gif", sourceUrl: "https://x.com/p", sourceTitle: "NiceArt" },
+		"灵感库"
+	);
+	assert.deepEqual(body, {
+		imageBase64: "QUJD",
+		filename: "NiceArt-5.gif",
+		folder: "灵感库",
+		tags: [],
+		sourceUrl: "https://x.com/p",
+		sourceTitle: "NiceArt",
 	});
-	assert.match(md, /^---\n/);
-	assert.match(md, /sourceUrl: "https:\/\/a\.com\/p"/);
-	assert.match(md, /sourceTitle: "Title"/);
-	assert.match(md, /capturedAt: 2024-07-28T/);
-	assert.match(md, /!\[\[x-5\.gif\]\]/);
 });
-test("obsidianSidecar escapes double quotes in the title", () => {
-	const md = obsidianSidecar({ filename: "x.png", sourceUrl: "", sourceTitle: 'a"b', capturedAt: 0 });
-	assert.match(md, /sourceTitle: "a\\"b"/);
+test("mcUploadBody never invents tags at capture time", () => {
+	// spec 使用约定：捕获时一律不打标，交给后置的手动/AI 流程
+	const body = mcUploadBody({ base64: "A", filename: "x.png", sourceUrl: "", sourceTitle: "clip" }, "F");
+	assert.deepEqual(body.tags, []);
+});
+test("mcUploadBody passes the empty sourceUrl through rather than dropping the key", () => {
+	// MC 侧的 sidecar 生成期望字段齐全；缺 key 与空串在它那边不是一回事
+	const body = mcUploadBody({ base64: "A", filename: "x.png", sourceUrl: "", sourceTitle: "t" }, "F");
+	assert.ok("sourceUrl" in body);
+	assert.equal(body.sourceUrl, "");
 });
 ```
 
@@ -359,90 +357,69 @@ Expected: FAIL — 找不到 `adapters/obsidian.js`
 
 ```js
 // extension/lib/adapters/obsidian.js
-// 写入走 obsidian-local-rest-api 社区插件。必须用明文 HTTP 端点：
-// 该插件默认的 HTTPS 27124 用自签证书，扩展的 fetch 无法绕过证书错误。
-// 用户需在 Settings → Local REST API → Enable HTTP server 打开 27123。
+// 写入走 Media Companion 插件自带的本地 API（上游功能，非 fork 改动）。
+// 选型记录见 spec 组件 3。两条铁律：
+//  1. adapter 绝不自己写 sidecar —— MC 生成，双写与其文件监听撞车；
+//  2. 来源信息（sourceUrl/sourceTitle）必须随 upload 请求进，否则 MC
+//     的 sidecar 里就没有它们。
 
-const DEFAULT_PORT = 27123;
+const DEFAULT_PORT = 27124; // 与 obsidian-local-rest-api 默认 HTTPS 端口重合；两边均可配
 
-export function obsidianVaultPath(folder, filename) {
-	const parts = String(folder || "")
-		.split("/")
-		.filter(Boolean)
-		.concat(filename);
-	return parts.map(encodeURIComponent).join("/");
-}
-
-function q(s) {
-	return String(s ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-export function obsidianSidecar(item) {
-	return [
-		"---",
-		`sourceUrl: "${q(item.sourceUrl)}"`,
-		`sourceTitle: "${q(item.sourceTitle)}"`,
-		`capturedAt: ${new Date(item.capturedAt).toISOString()}`,
-		"tags: []",
-		"---",
-		"",
-		`![[${item.filename}]]`,
-		"",
-	].join("\n");
+export function mcUploadBody(item, folder) {
+	return {
+		imageBase64: item.base64,
+		filename: item.filename,
+		folder,
+		tags: [], // 捕获时一律不打标（spec 使用约定）
+		sourceUrl: item.sourceUrl,
+		sourceTitle: item.sourceTitle,
+	};
 }
 
 function base(cfg) {
 	return `http://127.0.0.1:${cfg.port || DEFAULT_PORT}`;
 }
 
-function bytesFromBase64(b64) {
-	const bin = atob(b64);
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
+function authHeaders(cfg) {
+	return cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {};
 }
 
-let cachedCaps = { maxFileSize: Infinity };
+// 本地写盘无平台上限；捕获端 50MB 的护栏在 background.js 里已有
+const CAPS = { maxFileSize: Infinity };
 
 export const obsidianAdapter = {
 	id: "obsidian",
 
 	async test(cfg) {
+		let res;
 		try {
-			// GET / 是免鉴权的状态端点，先确认服务在；再用一次带鉴权的
-			// 目录列举确认 key 对。两步分开，才能区分"没开"和"钥匙错"。
-			const alive = await fetch(`${base(cfg)}/`);
-			if (!alive.ok) return { ok: false, errorKey: "errObsidianClosed" };
-			const authed = await fetch(`${base(cfg)}/vault/`, {
-				headers: { Authorization: `Bearer ${cfg.apiKey}` },
-			});
-			if (authed.status === 401) return { ok: false, errorKey: "errObsidianKey" };
-			if (!authed.ok) return { ok: false, errorKey: "errObsidianGeneric" };
-			return { ok: true, capabilities: cachedCaps };
+			res = await fetch(`${base(cfg)}/api/ping`, { headers: authHeaders(cfg) });
 		} catch {
+			// 连不上 = Obsidian 没开，或 MC 的 API 开关没打开
 			return { ok: false, errorKey: "errObsidianClosed" };
 		}
+		if (res.status === 401) return { ok: false, errorKey: "errObsidianKey" };
+		if (!res.ok) return { ok: false, errorKey: "errObsidianGeneric" };
+		return { ok: true, capabilities: CAPS };
 	},
 
 	capabilities() {
-		return cachedCaps;
+		return CAPS;
 	},
 
 	async save(item, cfg) {
-		const headers = { Authorization: `Bearer ${cfg.apiKey}` };
-		const mediaRes = await fetch(
-			`${base(cfg)}/vault/${obsidianVaultPath(cfg.folder, item.filename)}`,
-			{ method: "PUT", headers: { ...headers, "Content-Type": item.mime }, body: bytesFromBase64(item.base64) }
-		).catch(() => { throw { errorKey: "errObsidianClosed" }; });
-		if (!mediaRes.ok) throw { errorKey: "errObsidianGeneric", status: mediaRes.status };
-
-		const sidecarName = `${item.filename}.md`;
-		const sidecarRes = await fetch(
-			`${base(cfg)}/vault/${obsidianVaultPath(cfg.folder, sidecarName)}`,
-			{ method: "PUT", headers: { ...headers, "Content-Type": "text/markdown" }, body: obsidianSidecar(item) }
-		).catch(() => { throw { errorKey: "errSidecarFailed" }; });
-		// 媒体已经落地了 —— sidecar 失败只丢元数据，不该把整次捕获报成失败。
-		if (!sidecarRes.ok) throw { errorKey: "errSidecarFailed", status: sidecarRes.status };
+		let res;
+		try {
+			res = await fetch(`${base(cfg)}/api/upload`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", ...authHeaders(cfg) },
+				body: JSON.stringify(mcUploadBody(item, cfg.folder)),
+			});
+		} catch {
+			throw { errorKey: "errObsidianClosed" };
+		}
+		if (res.status === 401) throw { errorKey: "errObsidianKey", status: 401 };
+		if (!res.ok) throw { errorKey: "errObsidianGeneric", status: res.status };
 	},
 };
 ```
@@ -466,14 +443,13 @@ Expected: PASS，全部用例绿
 
 ```bash
 git add extension/lib/adapters/ tests/adapters.test.mjs
-git commit -m "feat: adapter interface and ObsidianAdapter over Local REST API
+git commit -m "feat: adapter interface and ObsidianAdapter over Media Companion API
 
-Plain HTTP on 27123, not the default HTTPS 27124: that endpoint uses a
-self-signed cert and an extension's fetch cannot bypass a cert error.
-Requires the user to enable the HTTP server in plugin settings.
-
-test() probes liveness and auth separately so 'Obsidian is closed' and
-'wrong key' produce different messages."
+Chosen over obsidian-local-rest-api deliberately (decision record in the
+spec): MC's key is upload-only where LRA's key can read the whole vault
+-- the same over-provisioning we rejected FSA for -- and MC generates
+the sidecar itself, so source metadata survives without a second writer
+racing its file watcher."
 ```
 
 ---
@@ -505,7 +481,7 @@ import { withDefaults } from "../extension/lib/settings.js";
 test("withDefaults supplies an empty chain and per-adapter defaults", () => {
 	const s = withDefaults(undefined);
 	assert.deepEqual(s.chain, []);
-	assert.equal(s.byAdapter.obsidian.port, 27123);
+	assert.equal(s.byAdapter.obsidian.port, 27124);
 	assert.equal(s.byAdapter.obsidian.folder, "灵感库");
 	assert.equal(s.byAdapter.obsidian.apiKey, "");
 });
@@ -529,7 +505,7 @@ Expected: FAIL — 找不到 `settings.js`
 import { ADAPTERS } from "./adapters/index.js";
 
 const DEFAULTS = {
-	obsidian: { port: 27123, apiKey: "", folder: "灵感库" },
+	obsidian: { port: 27124, apiKey: "", folder: "灵感库" },
 	notion: { token: "", databaseId: "" },
 };
 
@@ -637,10 +613,10 @@ function mb(bytes) {
 - [ ] **Step 6: 手动验证端到端**
 
 1. `chrome://extensions` 重新加载扩展
-2. 在 Obsidian 里装 Local REST API 插件，打开 *Enable HTTP server*，复制 API key
+2. 在 Obsidian 里确认 Media Companion 已启用，其设置里打开 API 开关，复制 API key（与今天下午 setup-key 流程用的是同一把）
 3. 暂时用 DevTools console 手动写入配置（options 页在 Task 6）：
    ```js
-   chrome.storage.local.set({ settings: { chain: ["obsidian"], byAdapter: { obsidian: { port: 27123, apiKey: "<粘贴>", folder: "灵感库" } } } })
+   chrome.storage.local.set({ settings: { chain: ["obsidian"], byAdapter: { obsidian: { port: 27124, apiKey: "<粘贴>", folder: "灵感库" } } } })
    ```
 4. 任意网页 `Alt+Shift+S` 框选 → 期望 vault 的 `灵感库/` 下出现图片 + 同名 `.md`
 5. 关掉 Obsidian 再截一次 → 期望 toast 报"Obsidian 没开"，不是静默失败
@@ -849,7 +825,7 @@ Expected: PASS
    ```js
    chrome.storage.local.set({ settings: { chain: ["notion", "obsidian"], byAdapter: {
      notion: { token: "<ntn_...>", databaseId: "3ac942e6a59280a5be6ce2122761f02d" },
-     obsidian: { port: 27123, apiKey: "<key>", folder: "灵感库" } } } })
+     obsidian: { port: 27124, apiKey: "<key>", folder: "灵感库" } } } })
    ```
 4. 截一张小图 → 期望出现在 Notion 数据库，画廊里能看到封面
 5. **右键存一个 >5MB 的 GIF** → 期望 toast 说明超限并已改存 Obsidian，且文件确实在 vault 里
@@ -932,10 +908,9 @@ Expected: FAIL — `_locales` 文件不存在
   "okSavedDegraded":    { "message": "文件较大，已改存 $1（$2 装不下）", "placeholders": { "to": { "content": "$1" }, "from": { "content": "$2" } } },
   "errNoDestination":   { "message": "还没设置存到哪儿，点扩展图标去配置" },
   "errTooLarge":        { "message": "这个文件 $1 MB，所有目的地最大只支持 $2 MB，没存上", "placeholders": { "size": { "content": "$1" }, "max": { "content": "$2" } } },
-  "errObsidianClosed":  { "message": "Obsidian 没开，或者没打开 Local REST API 的 HTTP 端口" },
+  "errObsidianClosed":  { "message": "Obsidian 没开，或者 Media Companion 的 API 开关没打开" },
   "errObsidianKey":     { "message": "Obsidian 的连接钥匙对不上，去配置页重新粘一次" },
   "errObsidianGeneric": { "message": "存进 Obsidian 失败，重试一下" },
-  "errSidecarFailed":   { "message": "图存上了，但来源信息没写进去" },
   "errNotionUnconfigured": { "message": "Notion 还没配好，去配置页填 token 和数据库" },
   "errNotionToken":     { "message": "Notion 的 token 无效或已过期" },
   "errNotionUnreachable": { "message": "连不上 Notion，检查一下网络" },
@@ -960,10 +935,9 @@ Expected: FAIL — `_locales` 文件不存在
   "okSavedDegraded":    { "message": "Too large for $2 — saved to $1 instead", "placeholders": { "to": { "content": "$1" }, "from": { "content": "$2" } } },
   "errNoDestination":   { "message": "No destination set yet — click the extension icon to configure one" },
   "errTooLarge":        { "message": "This file is $1 MB; the largest destination takes $2 MB. Not saved.", "placeholders": { "size": { "content": "$1" }, "max": { "content": "$2" } } },
-  "errObsidianClosed":  { "message": "Obsidian isn't running, or the Local REST API HTTP port isn't enabled" },
+  "errObsidianClosed":  { "message": "Obsidian isn't running, or the Media Companion API isn't enabled" },
   "errObsidianKey":     { "message": "Obsidian API key doesn't match — paste it again in settings" },
   "errObsidianGeneric": { "message": "Couldn't save to Obsidian. Try again." },
-  "errSidecarFailed":   { "message": "Image saved, but the source metadata didn't get written" },
   "errNotionUnconfigured": { "message": "Notion isn't set up yet — add a token and database in settings" },
   "errNotionToken":     { "message": "Notion token is invalid or expired" },
   "errNotionUnreachable": { "message": "Can't reach Notion — check your connection" },
@@ -1067,7 +1041,7 @@ form.addEventListener("submit", async (e) => {
 	await saveSettings({
 		chain: [...new Set(chain)],
 		byAdapter: {
-			obsidian: { port: Number(form.port.value) || 27123, apiKey: form.apiKey.value.trim(), folder: form.folder.value.trim() || "灵感库" },
+			obsidian: { port: Number(form.port.value) || 27124, apiKey: form.apiKey.value.trim(), folder: form.folder.value.trim() || "灵感库" },
 			notion: { token: form.token.value.trim(), databaseId: form.databaseId.value.trim() },
 		},
 	});
@@ -1121,7 +1095,7 @@ surfacing as a generic red light."
 | `capabilities()` 动态实探 | Task 5（Notion 读 `workspace_limits`）、Task 3（Obsidian 恒 `Infinity`） |
 | 捕获层不知道 adapter 存在 | Task 4（`saveToLibrary` 只与 router 对话） |
 | 降级策略住路由层 | Task 2 |
-| ObsidianAdapter（Local REST API） | Task 3 |
+| ObsidianAdapter（Media Companion API） | Task 3 |
 | NotionAdapter（三步上传） | Task 5 |
 | 降级链 Notion→Obsidian | Task 2 + Task 5 Step 5 验证 |
 | i18n 中英双语 | Task 6 |
