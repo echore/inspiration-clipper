@@ -39,6 +39,7 @@ test("extFromContentType maps known types and strips params", () => {
 	assert.equal(extFromContentType("image/gif"), "gif");
 	assert.equal(extFromContentType("video/mp4; codecs=avc1"), "mp4");
 	assert.equal(extFromContentType("video/quicktime"), "mov");
+	assert.equal(extFromContentType("image/svg+xml"), "svg");
 	assert.equal(extFromContentType("text/html"), null);
 	assert.equal(extFromContentType(null), null);
 });
@@ -46,12 +47,14 @@ test("extFromUrl reads the pathname extension only", () => {
 	assert.equal(extFromUrl("https://a.com/x/anim.gif?x=1"), "gif");
 	assert.equal(extFromUrl("https://pbs.twimg.com/media/abc?format=jpg&name=large"), null);
 	assert.equal(extFromUrl("https://a.com/clip.mp4"), "mp4");
+	assert.equal(extFromUrl("https://a.com/logo.svg"), "svg");
 	assert.equal(extFromUrl("not a url"), null);
 });
-test("pickExt prefers content-type, falls back to url, then png", () => {
+test("pickExt prefers content-type, falls back to url, then null (never a fake ext)", () => {
 	assert.equal(pickExt("image/gif", "https://a.com/x.mp4"), "gif");
 	assert.equal(pickExt(null, "https://a.com/x.webm"), "webm");
-	assert.equal(pickExt("application/octet-stream", "https://a.com/x"), "png");
+	assert.equal(pickExt("image/svg+xml", "https://a.com/x"), "svg");
+	assert.equal(pickExt("application/octet-stream", "https://a.com/x"), null);
 });
 test("buildFilename honors ext parameter and defaults to png", () => {
 	assert.equal(buildFilename("T", 5, "gif"), "T-5.gif");

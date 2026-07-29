@@ -138,12 +138,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 				return;
 			}
 			const mime = match[1] || null;
+			const dataExt = extFromContentType(mime);
+			if (!dataExt) {
+				await showToast(tab.id, "认不出这张图的格式，用框选截图吧（Alt+Shift+S）", false);
+				return;
+			}
 			const b64 = info.srcUrl.slice(match[0].length);
 			await saveToLibrary(tab.id, {
 				imageBase64: b64,
 				title: tab.title ?? "clip",
 				sourceUrl: info.pageUrl ?? "",
-				ext: extFromContentType(mime) ?? "png",
+				ext: dataExt,
 			});
 			return;
 		}
@@ -162,11 +167,16 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 		}
 		try {
 			const { b64, contentType } = await fetchMediaAsBase64(info.srcUrl);
+			const ext = pickExt(contentType, info.srcUrl);
+			if (!ext) {
+				await showToast(tab.id, "认不出这个文件的格式，用框选截图吧（Alt+Shift+S）", false);
+				return;
+			}
 			await saveToLibrary(tab.id, {
 				imageBase64: b64,
 				title: tab.title ?? "clip",
 				sourceUrl: info.pageUrl ?? info.srcUrl,
-				ext: pickExt(contentType, info.srcUrl),
+				ext,
 			});
 		} catch (e) {
 			if (e?.tooLarge) {

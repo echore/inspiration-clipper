@@ -19,11 +19,11 @@ export function buildUploadBody({ imageBase64, title, sourceUrl, folder, now, ex
 	};
 }
 
-const MEDIA_EXTS = new Set(["png", "jpg", "jpeg", "webp", "avif", "bmp", "gif", "mp4", "webm", "mov", "ogv"]);
+const MEDIA_EXTS = new Set(["png", "jpg", "jpeg", "webp", "avif", "bmp", "gif", "svg", "mp4", "webm", "mov", "ogv"]);
 
 const CONTENT_TYPE_EXT = {
 	"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
-	"image/avif": "avif", "image/bmp": "bmp", "image/gif": "gif",
+	"image/avif": "avif", "image/bmp": "bmp", "image/gif": "gif", "image/svg+xml": "svg",
 	"video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "video/ogg": "ogv",
 };
 
@@ -42,8 +42,11 @@ export function extFromUrl(url) {
 	}
 }
 
+// null when neither source identifies the format — caller must refuse rather
+// than write unknown bytes under a made-up extension (false-success is worse
+// than a visible failure).
 export function pickExt(contentType, url) {
-	return extFromContentType(contentType) ?? extFromUrl(url) ?? "png";
+	return extFromContentType(contentType) ?? extFromUrl(url) ?? null;
 }
 
 export function friendlyError(e) {
