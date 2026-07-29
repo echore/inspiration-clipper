@@ -49,11 +49,11 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 - sidecar 只为白名单内媒体生成；白名单外的图（如笔记贴图）不进 gallery、不生成 sidecar
 - 对应上游已有需求 [#26 [FR] Whitelist/blacklist folders](https://github.com/Nick-de-Bruin/obsidian-media-companion/issues/26)
 
-### 改动 2：瀑布流随机排序
+### 改动 2：瀑布流随机排序 —— 已撤销（2026-07-28）
 
-- waterfall Bases 视图新增「Shuffle」开关（视图配置项，随 Bases 视图持久化）
-- 开启时：每次视图打开（onOpen/onload）对条目重新洗牌；关闭时走 Bases 原生排序
-- 验收：连续打开两次，首屏图片顺序不同
+**不需要写代码。** Obsidian Bases 内置 `random()` 函数（官方文档：「每次视图加载时重新生成」），在 `.base` 文件里配 `formulas: {shuffle: random()}` + `groupBy: {property: formula.shuffle}` 即可，实测每次重开视图顺序都变、同次打开内滚动稳定。
+
+我们一度实现了插件端的 Shuffle 开关，实测确认原生可行后已从 fork 中 revert，对应的上游 PR 与 issue 一并撤销。教训：改上游代码之前先穷尽宿主平台的原生能力。
 
 ### 维护策略
 
@@ -106,7 +106,7 @@ Gallery 基于 Obsidian 官方 Bases，**要求 Obsidian ≥ 1.11.5**（实施�
 1. Media Companion fork（白名单 + 随机排序），装进 creation-flywheel，验证 gallery
 2. 灵感 clipper 扩展 MV3，打通 Chrome → 灵感库 链路
 3. /tag-gallery skill + SOP 模板
-4. 上游 PR ×2（2026-07-28 用户决定：顺延到扩展做完、整条链路实测过之后再提，让 PR 带着实战验证出门）
+4. 上游 PR ×1（原计划两个；随机排序那个因原生可实现已撤销。2026-07-28 用户决定：顺延到扩展做完、整条链路实测过之后再提，让 PR 带着实战验证出门）
 
 ## 验收标准（Definition of Done）
 
