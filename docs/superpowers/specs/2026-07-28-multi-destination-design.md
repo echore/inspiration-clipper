@@ -241,6 +241,8 @@ Mozilla 对 FSA 的[正式立场](https://mozilla.github.io/standards-positions/
 
 两者并列，不分先后。
 
+**注意此处与准入标准存在一处有条件的例外**：Notion 的第三根支柱（随机重现）尚未验证，因此它是**有条件准入**——通过实施顺序第 0 步才算数。若第 0 步证明 Notion 做不到每次打开重洗，则不是把 Notion 踢出去（人群在那里，且它是手机端唯一可用目的地），而是必须为它另配一套复现机制（见「未解决的问题」第 2 条）。这条例外是自觉的，不是疏漏。
+
 ### 已淘汰（附理由，防止重复调研）
 
 - **Joplin** ❌ —— 写入完全没问题（`POST /resources`，官方文档示例就是传图片）。**但它连缩略图都没有**，画廊视图在论坛上[还只是 feature request](https://discourse.joplinapp.org/t/notes-view-gallery-view/19720)。存得进，看不见，出局。
