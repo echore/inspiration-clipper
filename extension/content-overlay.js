@@ -11,6 +11,9 @@
 	let pendingDataUrl = null; // screenshot held here until region is selected
 	let safetyTimer = null;
 
+	const HINT_TEXT = "拖动框选要收藏的区域，Esc 取消";
+	const HINT_BG = "rgba(0,0,0,.75)";
+
 	function show(dataUrl) {
 		// Trust the DOM, not the flag: an SPA re-render can detach the overlay without
 		// remove() running, leaving the flag stuck and blocking the next capture.
@@ -30,9 +33,9 @@
 		hint = document.createElement("div");
 		hint.style.cssText =
 			"position:absolute;bottom:16px;left:50%;transform:translateX(-50%);" +
-			"background:rgba(0,0,0,.75);color:#fff;padding:6px 16px;border-radius:20px;" +
+			`background:${HINT_BG};color:#fff;padding:6px 16px;border-radius:20px;` +
 			"font:13px/1.6 system-ui,sans-serif;pointer-events:none;white-space:nowrap;";
-		hint.textContent = "拖动框选要收藏的区域，Esc 取消";
+		hint.textContent = HINT_TEXT;
 
 		overlay.append(canvas, hint);
 		document.body.appendChild(overlay);
@@ -49,6 +52,7 @@
 		overlay.addEventListener("wheel", blockScroll, { passive: false });
 		overlay.addEventListener("touchmove", blockScroll, { passive: false });
 		document.addEventListener("keydown", onKey, true);
+		window.addEventListener("resize", onResize);
 		state = "idle";
 	}
 
@@ -80,8 +84,16 @@
 		ctx.fillText(label, x + 5, Math.max(15, y - 6));
 	}
 
+	function onResize() {
+		if (!canvas) return;
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+		draw();
+	}
+
 	function remove() {
 		document.removeEventListener("keydown", onKey, true);
+		window.removeEventListener("resize", onResize);
 		clearTimeout(safetyTimer);
 		safetyTimer = null;
 		if (overlay) overlay.remove();
@@ -89,22 +101,27 @@
 		state = "idle";
 	}
 
+	// isTrusted: page JS can dispatch synthetic mouse events at the overlay to
+	// auto-select a region and silently commit an upload — only real input counts.
 	function onDown(e) {
-		if (state !== "idle") return;
+		if (!e.isTrusted || state !== "idle") return;
 		e.preventDefault();
 		state = "selecting";
+		// clear any leftover timeout styling from a previous failed attempt
+		hint.textContent = HINT_TEXT;
+		hint.style.background = HINT_BG;
 		startX = endX = e.clientX;
 		startY = endY = e.clientY;
 	}
 
 	function onMove(e) {
-		if (state !== "selecting") return;
+		if (!e.isTrusted || state !== "selecting") return;
 		endX = e.clientX; endY = e.clientY;
 		draw();
 	}
 
 	function onUp(e) {
-		if (state !== "selecting") return;
+		if (!e.isTrusted || state !== "selecting") return;
 		endX = e.clientX; endY = e.clientY;
 		const x = Math.min(startX, endX), y = Math.min(startY, endY);
 		const w = Math.abs(endX - startX), h = Math.abs(endY - startY);
