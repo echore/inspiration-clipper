@@ -198,8 +198,7 @@ $("#no-verify").addEventListener("click", async () => {
 // —— Notion N2:复制模板 → 在库页面上"连接"→ 扩展自动认出这个库。
 // 库放在哪、叫什么全是用户自己在 Notion 里操作的,扩展绝不代建。
 // 检测的是数据库(不是页面),所以旧条目不会出现在这里。 ——
-// TODO:用户把模板页发布(Share → Publish,勾选允许复制)后,换成公开链接。
-const NOTION_TEMPLATE_URL = "https://app.notion.com/p/346652dc2947404b8ac202f5cb5b4738";
+const NOTION_TEMPLATE_URL = "https://fifree.notion.site/346652dc2947404b8ac202f5cb5b4738?v=3ad942e6a5928095b281000c954d0d0d";
 $("#no-template-link").href = NOTION_TEMPLATE_URL;
 
 const noFinish = $("#no-finish");
