@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mcUploadBody } from "../extension/lib/adapters/obsidian.js";
 import {
 	notionCapsFromBotUser, notionPageProperties,
-	NOTION_PROPS, createDatabasePayload, mapSearchResults, notionAdapter,
+	NOTION_PROPS, mapDataSourceResults, notionAdapter,
 } from "../extension/lib/adapters/notion.js";
 
 test("mcUploadBody maps a CaptureItem onto the Media Companion upload schema", () => {
@@ -69,35 +69,35 @@ test("NOTION_PROPS is the single source of truth used by notionPageProperties", 
 	}
 });
 
-test("createDatabasePayload nests the 5-property schema under initial_data_source (2025-09+ API shape)", () => {
-	const p = createDatabasePayload("page-123", "灵感库");
-	assert.deepEqual(p.parent, { type: "page_id", page_id: "page-123" });
-	assert.deepEqual(p.title, [{ type: "text", text: { content: "灵感库" } }]);
-	const schema = p.initial_data_source.properties;
-	assert.deepEqual(schema[NOTION_PROPS.name], { title: {} });
-	assert.deepEqual(schema[NOTION_PROPS.image], { files: {} });
-	assert.deepEqual(schema[NOTION_PROPS.sourceUrl], { url: {} });
-	assert.deepEqual(schema[NOTION_PROPS.sourceTitle], { rich_text: {} });
-	assert.deepEqual(schema[NOTION_PROPS.captured], { date: {} });
-	assert.equal(Object.keys(schema).length, 5);
-});
-
-test("mapSearchResults keeps pages only and extracts the title property", () => {
+test("mapDataSourceResults keeps database-backed sources and flags missing template columns", () => {
 	const json = {
 		results: [
-			{ object: "page", id: "p1", properties: { title: { type: "title", title: [{ plain_text: "灵感" }, { plain_text: "收集" }] } } },
-			{ object: "database", id: "d1" },
-			{ object: "page", id: "p2", properties: {} }, // 无标题页面 → title 为空串,UI 层兜底
+			{
+				object: "data_source", id: "ds1", parent: { database_id: "db1" },
+				title: [{ plain_text: "灵感库" }],
+				properties: { Name: {}, Image: {}, "Source URL": {}, "Source Title": {}, Captured: {} },
+			},
+			{
+				object: "data_source", id: "ds2", parent: { database_id: "db2" },
+				title: [{ plain_text: "别的库" }],
+				properties: { Name: {}, Tags: {} }, // 不是模板复制的 → 缺列要点名
+			},
+			{ object: "page", id: "p1" }, // 页面一律不进列表
+			{ object: "data_source", id: "ds3", title: [] }, // 没挂在 database 下 → 丢弃
 		],
 	};
-	assert.deepEqual(mapSearchResults(json), [
-		{ id: "p1", title: "灵感收集" },
-		{ id: "p2", title: "" },
+	assert.deepEqual(mapDataSourceResults(json), [
+		{ databaseId: "db1", title: "灵感库", missing: [] },
+		{ databaseId: "db2", title: "别的库", missing: ["Image", "Source URL", "Source Title", "Captured"] },
 	]);
 });
-test("mapSearchResults tolerates a malformed response", () => {
-	assert.deepEqual(mapSearchResults({}), []);
-	assert.deepEqual(mapSearchResults(null), []);
+test("mapDataSourceResults trusts sources when the API returns no schema", () => {
+	const json = { results: [{ object: "data_source", id: "ds1", parent: { database_id: "db1" }, title: [{ plain_text: "库" }] }] };
+	assert.deepEqual(mapDataSourceResults(json), [{ databaseId: "db1", title: "库", missing: [] }]);
+});
+test("mapDataSourceResults tolerates a malformed response", () => {
+	assert.deepEqual(mapDataSourceResults({}), []);
+	assert.deepEqual(mapDataSourceResults(null), []);
 });
 
 // —— 网络方法用 mock fetch 测。node:test 的 t.after 保证恢复。 ——
@@ -141,32 +141,21 @@ test("notionAdapter.verifyToken rejects an empty token without a network call", 
 	assert.deepEqual(r, { ok: false, errorKey: "errNotionToken" });
 });
 
-test("notionAdapter.searchPages returns mapped pages", async (t) => {
-	mockFetch(t, async () => ({
-		status: 200, ok: true,
-		json: async () => ({ results: [{ object: "page", id: "p1", properties: { N: { type: "title", title: [{ plain_text: "Home" }] } } }] }),
-	}));
-	const r = await notionAdapter.searchPages({ token: "good" });
-	assert.deepEqual(r, { ok: true, pages: [{ id: "p1", title: "Home" }] });
-});
-test("notionAdapter.searchPages flags an empty result as errNotionSearchEmpty", async (t) => {
-	mockFetch(t, async () => ({ status: 200, ok: true, json: async () => ({ results: [] }) }));
-	const r = await notionAdapter.searchPages({ token: "good" });
-	assert.deepEqual(r, { ok: false, errorKey: "errNotionSearchEmpty" });
-});
-
-test("notionAdapter.createDatabase returns the new databaseId", async (t) => {
+test("notionAdapter.searchDataSources filters by data_source and returns mapped sources", async (t) => {
 	let sentBody;
 	mockFetch(t, async (url, init) => {
 		sentBody = JSON.parse(init.body);
-		return { status: 200, ok: true, json: async () => ({ id: "new-db-id" }) };
+		return {
+			status: 200, ok: true,
+			json: async () => ({ results: [{ object: "data_source", id: "ds1", parent: { database_id: "db1" }, title: [{ plain_text: "灵感库" }] }] }),
+		};
 	});
-	const r = await notionAdapter.createDatabase({ token: "good" }, "page-1", "灵感库");
-	assert.deepEqual(r, { ok: true, databaseId: "new-db-id" });
-	assert.equal(sentBody.parent.page_id, "page-1");
+	const r = await notionAdapter.searchDataSources({ token: "good" });
+	assert.deepEqual(r, { ok: true, sources: [{ databaseId: "db1", title: "灵感库", missing: [] }] });
+	assert.deepEqual(sentBody.filter, { value: "data_source", property: "object" });
 });
-test("notionAdapter.createDatabase maps failure to errNotionCreateDb", async (t) => {
-	mockFetch(t, async () => ({ status: 400, ok: false }));
-	const r = await notionAdapter.createDatabase({ token: "good" }, "page-1", "灵感库");
-	assert.deepEqual(r, { ok: false, errorKey: "errNotionCreateDb" });
+test("notionAdapter.searchDataSources flags an empty result as errNotionSearchEmpty", async (t) => {
+	mockFetch(t, async () => ({ status: 200, ok: true, json: async () => ({ results: [] }) }));
+	const r = await notionAdapter.searchDataSources({ token: "good" });
+	assert.deepEqual(r, { ok: false, errorKey: "errNotionSearchEmpty" });
 });

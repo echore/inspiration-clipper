@@ -80,13 +80,7 @@
 		}
 		.card-choice:hover { border-color: var(--accent); background: var(--accent-soft); }
 		.card-choice:active { transform: scale(0.99); }
-		.card-choice .badge {
-			flex: none; width: 40px; height: 40px; border-radius: 10px;
-			display: flex; align-items: center; justify-content: center;
-			color: #fff; font-size: 18px; font-weight: 700;
-		}
-		.badge-obsidian { background: #7c3aed; }
-		.badge-notion { background: #18181b; }
+		.card-choice .badge-logo { flex: none; width: 40px; height: 40px; }
 		.card-choice .sub { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
 		label { display: block; margin-top: 14px; font-size: 14px; font-weight: 550; }
 		input {
@@ -177,14 +171,14 @@
 	<section data-step="choose" hidden>
 		<h2 data-i18n="wizChooseTitle"></h2>
 		<button type="button" class="card-choice" data-choose="obsidian">
-			<span class="badge badge-obsidian">O</span>
+			<img class="badge-logo" src="obsidian-logo.svg" alt="">
 			<span>
 				<strong data-i18n="dest_obsidian"></strong>
 				<span class="sub" data-i18n="wizChooseObsidian"></span>
 			</span>
 		</button>
 		<button type="button" class="card-choice" data-choose="notion">
-			<span class="badge badge-notion">N</span>
+			<img class="badge-logo" src="notion-logo.svg" alt="">
 			<span>
 				<strong data-i18n="dest_notion"></strong>
 				<span class="sub" data-i18n="wizChooseNotion"></span>
@@ -262,29 +256,19 @@
 		</div>
 	</section>
 
-	<!-- Notion N2:连接页面,自动检测 -->
-	<section data-step="notion-page" hidden>
-		<h2 data-i18n="wizNoPageTitle"></h2>
-		<p class="intro" data-i18n="wizNoPageIntro"></p>
+	<!-- Notion N2:复制模板 → 连接 → 自动检测,完成 -->
+	<section data-step="notion-connect" hidden>
+		<h2 data-i18n="wizNoConnectTitle"></h2>
+		<p class="intro" data-i18n="wizNoConnectIntro"></p>
 		<ol class="guide">
-			<li data-i18n="wizNoPageStep1"></li>
-			<li data-i18n="wizNoPageStep2"></li>
-			<li data-i18n="wizNoPageStep3"></li>
+			<li data-i18n="wizNoConnectStep1"></li>
+			<li data-i18n="wizNoConnectStep2"></li>
+			<li data-i18n="wizNoConnectStep3"></li>
 		</ol>
+		<a class="btn primary" id="no-template-link" href="#" target="_blank" data-i18n="wizNoConnectOpen"></a>
 		<div class="inline-status" id="no-detect-status"></div>
-		<div class="page-list" id="page-list"></div>
-		<button type="button" class="linklike" id="no-refresh" data-i18n="wizNoPageRefresh"></button>
-		<div class="nav">
-			<button type="button" class="btn primary" id="no-page-next" data-nav="next" data-i18n="wizNext" disabled></button>
-		</div>
-	</section>
-
-	<!-- Notion N3:建库 + 完成 -->
-	<section data-step="notion-database" hidden>
-		<h2 data-i18n="wizNoDbTitle"></h2>
-		<p class="intro" data-i18n="wizNoDbIntro"></p>
-		<button type="button" class="btn primary" id="no-create-db" data-i18n="wizNoDbCreate"></button>
-		<div class="inline-status" id="no-db-status"></div>
+		<div class="page-list" id="db-list"></div>
+		<button type="button" class="linklike" id="no-refresh" data-i18n="wizNoDetectRetry"></button>
 		<div class="nav">
 			<button type="button" class="btn finish" id="no-finish" data-i18n="wizFinish" disabled></button>
 		</div>

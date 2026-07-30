@@ -1,10 +1,11 @@
 // extension/lib/onboarding.js — 向导的纯函数层。不碰 DOM、不碰 chrome API,
 // 让步骤流转和输入清洗可以在 node 里直接测。
 
-// 每个分支 3 步;"choose" 和 "done" 是所有分支共享的首尾,不进流程表。
+// "choose" 和 "done" 是所有分支共享的首尾,不进流程表。
+// Notion 只有两步:库来自用户自己复制的模板,扩展不代建。
 const FLOWS = {
 	obsidian: ["obsidian-install", "obsidian-connect", "obsidian-folder"],
-	notion: ["notion-token", "notion-page", "notion-database"],
+	notion: ["notion-token", "notion-connect"],
 };
 
 // 剥尖括号:真实发生过的复制损坏——用户把指引里的占位符符号一起粘进来。

@@ -31,38 +31,18 @@ export function notionPageProperties(item, fileUploadId) {
 	};
 }
 
-// 建库请求体。API 版本 2025-09-03 起 schema 必须嵌在 initial_data_source 下
-// (数据库变成了数据源的容器),顶层 properties 会被拒。
-export function createDatabasePayload(parentPageId, title) {
-	return {
-		parent: { type: "page_id", page_id: parentPageId },
-		title: [{ type: "text", text: { content: title } }],
-		initial_data_source: {
-			properties: {
-				[NOTION_PROPS.name]: { title: {} },
-				[NOTION_PROPS.image]: { files: {} },
-				[NOTION_PROPS.sourceUrl]: { url: {} },
-				[NOTION_PROPS.sourceTitle]: { rich_text: {} },
-				[NOTION_PROPS.captured]: { date: {} },
-			},
-		},
-	};
-}
-
-// search 结果 → { id, title } 列表。title 属性的键名随页面模板变,按 type 找。
-export function mapSearchResults(json) {
+// search 结果(filter=data_source)→ 可连接的库列表。库由用户从模板复制,
+// 扩展只负责认出它:必须挂在某个 database 下,且五列齐全(缺列记进 missing,
+// 让 UI 能指名道姓地提示;接口没回 schema 时不妄下判断)。
+export function mapDataSourceResults(json) {
 	const results = Array.isArray(json?.results) ? json.results : [];
 	return results
-		.filter((r) => r?.object === "page")
+		.filter((r) => r?.object === "data_source" && r?.parent?.database_id)
 		.map((r) => {
-			let title = "";
-			for (const prop of Object.values(r.properties ?? {})) {
-				if (prop?.type === "title") {
-					title = (prop.title ?? []).map((seg) => seg?.plain_text ?? "").join("");
-					break;
-				}
-			}
-			return { id: r.id, title };
+			const title = (r.title ?? []).map((seg) => seg?.plain_text ?? "").join("");
+			const keys = r.properties ? Object.keys(r.properties) : null;
+			const missing = keys ? Object.values(NOTION_PROPS).filter((p) => !keys.includes(p)) : [];
+			return { databaseId: r.parent.database_id, title, missing };
 		});
 }
 
@@ -111,37 +91,21 @@ export const notionAdapter = {
 		return { ok: true, capabilities: cachedCaps };
 	},
 
-	async searchPages(cfg) {
+	async searchDataSources(cfg) {
 		try {
 			const res = await fetch(`${API}/search`, {
 				method: "POST",
 				headers: { ...headers(cfg), "Content-Type": "application/json" },
-				body: JSON.stringify({ filter: { value: "page", property: "object" }, page_size: 20 }),
+				body: JSON.stringify({ filter: { value: "data_source", property: "object" }, page_size: 20 }),
 			});
 			if (res.status === 401) return { ok: false, errorKey: "errNotionToken" };
 			if (!res.ok) return { ok: false, errorKey: "errNotionGeneric" };
-			const pages = mapSearchResults(await res.json());
-			if (pages.length === 0) return { ok: false, errorKey: "errNotionSearchEmpty" };
-			return { ok: true, pages };
+			const sources = mapDataSourceResults(await res.json());
+			if (sources.length === 0) return { ok: false, errorKey: "errNotionSearchEmpty" };
+			return { ok: true, sources };
 		} catch {
 			return { ok: false, errorKey: "errNotionUnreachable" };
 		}
-	},
-
-	async createDatabase(cfg, parentPageId, title) {
-		let res;
-		try {
-			res = await fetch(`${API}/databases`, {
-				method: "POST",
-				headers: { ...headers(cfg), "Content-Type": "application/json" },
-				body: JSON.stringify(createDatabasePayload(parentPageId, title)),
-			});
-		} catch {
-			return { ok: false, errorKey: "errNotionUnreachable" };
-		}
-		if (!res.ok) return { ok: false, errorKey: "errNotionCreateDb" };
-		const json = await res.json();
-		return { ok: true, databaseId: json.id };
 	},
 
 	capabilities() {

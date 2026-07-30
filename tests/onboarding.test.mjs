@@ -18,9 +18,9 @@ test("sanitizeToken tolerates non-string input", () => {
 	assert.equal(sanitizeToken(undefined), "");
 });
 
-test("flowFor returns the 3-step branch for each destination", () => {
+test("flowFor returns each destination's branch (obsidian 3 steps, notion 2)", () => {
 	assert.deepEqual(flowFor("obsidian"), ["obsidian-install", "obsidian-connect", "obsidian-folder"]);
-	assert.deepEqual(flowFor("notion"), ["notion-token", "notion-page", "notion-database"]);
+	assert.deepEqual(flowFor("notion"), ["notion-token", "notion-connect"]);
 	assert.deepEqual(flowFor(""), []);
 });
 
@@ -29,13 +29,13 @@ test("nextStep walks choose → branch → done", () => {
 	assert.equal(nextStep("obsidian", "obsidian-install"), "obsidian-connect");
 	assert.equal(nextStep("obsidian", "obsidian-folder"), "done");
 	assert.equal(nextStep("notion", "choose"), "notion-token");
-	assert.equal(nextStep("notion", "notion-database"), "done");
+	assert.equal(nextStep("notion", "notion-connect"), "done");
 	assert.equal(nextStep("notion", "not-a-step"), null);
 });
 
 test("prevStep walks branch → choose and never past it", () => {
 	assert.equal(prevStep("obsidian", "obsidian-install"), "choose");
-	assert.equal(prevStep("notion", "notion-page"), "notion-token");
+	assert.equal(prevStep("notion", "notion-connect"), "notion-token");
 	assert.equal(prevStep("notion", "not-a-step"), null);
 });
 
@@ -48,6 +48,7 @@ test("firstCredentialStep skips the install step for reconfiguration", () => {
 test("stepNumber is 1-based within the branch, 0 outside it", () => {
 	assert.equal(stepNumber("obsidian", "obsidian-install"), 1);
 	assert.equal(stepNumber("obsidian", "obsidian-folder"), 3);
+	assert.equal(stepNumber("notion", "notion-connect"), 2);
 	assert.equal(stepNumber("notion", "choose"), 0);
 	assert.equal(stepNumber("notion", "done"), 0);
 });

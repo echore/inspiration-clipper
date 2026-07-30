@@ -126,3 +126,15 @@ DOM 布线不做单测,与现有代码一致。
 5. Notion 测试在"token 对但库未分享"时给出明确提示(不再假绿灯)
 6. 已配置用户打开设置页看到总览卡片与实时连接状态,可重入向导修改
 7. 全部新文案中英双语,`node --test` 全绿
+
+## 修订(2026-07-30,用户实测后裁定)
+
+**放弃"扩展自动建库",改为"模板复制"流程。** 实测暴露两个致命问题:
+1. 按页面搜索会把旧灵感库的每一条条目都列出来(每条在 Notion 里都是页面),出现几十项无意义列表;
+2. 自动建库对用户完全不透明——建在哪、为什么建,用户无感知也无控制权。
+
+新 Notion 流程(与 screenshot-clipper 时代验证过的流程一致,共 2 步):
+1. 建 integration、粘 token(不变)
+2. 打开官方模板 → 用户自己 Duplicate 到工作区(位置、名字自己定)→ 在复制出的数据库页面 Connections 连接 integration → 扩展检测数据源(search filter=data_source,非 page),校验五列齐全后显示库名让用户确认 → 完成
+
+相应地:`createDatabase`/`createDatabasePayload`/`searchPages` 从 adapter 移除,新增 `searchDataSources`+`mapDataSourceResults`(含缺列检查,错误键 `errNotionSchema`);`errNotionCreateDb` 移除。模板页由开发者维护(五列 + 一条示例),发布后 URL 写入 `NOTION_TEMPLATE_URL` 常量。
