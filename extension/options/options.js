@@ -199,10 +199,9 @@ $("#no-verify").addEventListener("click", async () => {
 // 库放在哪、叫什么全是用户自己在 Notion 里操作的,扩展绝不代建。
 // 检测的是数据库(不是页面),所以旧条目不会出现在这里。 ——
 // 模板分语言:浏览器界面是中文给中文库,其余给英文库。
-// TODO:英文模板发布(Share → Publish)后,把 en 换成公开的 notion.site 链接。
 const NOTION_TEMPLATE_URLS = {
 	zh: "https://fifree.notion.site/346652dc2947404b8ac202f5cb5b4738?v=3ad942e6a5928095b281000c954d0d0d",
-	en: "https://app.notion.com/p/3b782fcf8c3d415e972cbd78866964dd",
+	en: "https://fifree.notion.site/3b782fcf8c3d415e972cbd78866964dd?v=b7ac990a60fe491592d48e4fb4159c11",
 };
 const uiLang = (chrome.i18n?.getUILanguage?.() ?? "zh").toLowerCase();
 $("#no-template-link").href = uiLang.startsWith("zh") ? NOTION_TEMPLATE_URLS.zh : NOTION_TEMPLATE_URLS.en;
