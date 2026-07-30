@@ -142,7 +142,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 	}
 });
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
+	// 首次安装直接带用户进配置向导;更新/重载不打扰
+	if (details?.reason === "install") chrome.runtime.openOptionsPage();
 	chrome.contextMenus.removeAll(() => {
 		chrome.contextMenus.create({
 			id: "insp-save-image",
