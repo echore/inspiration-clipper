@@ -4,7 +4,7 @@ import { loadSettings, saveSettings } from "../lib/settings.js";
 import { ADAPTERS } from "../lib/adapters/index.js";
 import { notionAdapter } from "../lib/adapters/notion.js";
 import {
-	sanitizeToken, nextStep, prevStep, firstCredentialStep, stepNumber,
+	sanitizeToken, flowFor, nextStep, prevStep, firstCredentialStep, stepNumber,
 } from "../lib/onboarding.js";
 import { t } from "../lib/i18n.js";
 
@@ -17,8 +17,10 @@ const $ = (sel) => document.querySelector(sel);
 // —— 向导会话状态(不落盘;落盘只发生在"完成") ——
 let dest = "";
 let currentStep = "";
+let configured = false; // 已有落盘配置 → choose 步可以退回总览
 let selectedPage = null; // { id, title }
 let pendingDatabaseId = ""; // N3 建好(或沿用)但还没保存的库
+let pollTimer = null; // N2 自动检测轮询
 
 function obsidianCfg() {
 	return {
@@ -31,16 +33,45 @@ function notionCfg() {
 	return { token: sanitizeToken($("#token").value), databaseId: pendingDatabaseId };
 }
 
+function stopPolling() {
+	if (pollTimer) {
+		clearInterval(pollTimer);
+		pollTimer = null;
+	}
+}
+
+// —— 顶部导航:固定位置的"上一步",choose 步在已配置时退回总览 ——
+function updateTopbar(step) {
+	const back = $("#back-link");
+	const hideBack = step === "overview" || step === "done" || (step === "choose" && !configured);
+	back.hidden = hideBack;
+	if (!hideBack) {
+		back.textContent = "← " + (step === "choose" ? t("wizBackToOverview") : t("wizBack"));
+	}
+	// 进度点:仅分支步骤显示
+	const progress = $("#progress");
+	progress.textContent = "";
+	const n = stepNumber(dest, step);
+	if (n > 0) {
+		for (let i = 1; i <= flowFor(dest).length; i++) {
+			const dot = document.createElement("span");
+			dot.className = i <= n ? "dot on" : "dot";
+			progress.appendChild(dot);
+		}
+		progress.appendChild(document.createTextNode(t("wizStepOf", [String(n)])));
+	}
+}
+
 function show(step) {
+	stopPolling(); // 离开任何步骤都停掉检测轮询;进 N2 会重新开
 	currentStep = step;
 	document.querySelectorAll("[data-step]").forEach((s) => {
 		s.hidden = s.dataset.step !== step;
 	});
-	// 步骤自己的进场逻辑(如 N3 的"沿用现有库"探测)挂在这个事件上
+	// 步骤自己的进场逻辑(N2 自动检测、N3 沿用探测)挂在这个事件上
 	const active = document.querySelector(`[data-step="${step}"]`);
 	if (active) active.dispatchEvent(new CustomEvent("step-enter"));
-	const n = stepNumber(dest, step);
-	$("#progress").textContent = n > 0 ? t("wizStepOf", [String(n)]) : "";
+	updateTopbar(step);
 }
 
 function setStatus(el, kind, msg) {
@@ -51,6 +82,7 @@ function setStatus(el, kind, msg) {
 // —— 总览态 ——
 async function showOverview(settings) {
 	dest = settings.chain[0];
+	configured = true;
 	show("overview");
 	$("#ov-dest").textContent = t("ovDest", [t(`dest_${dest}`)]);
 	$("#ov-status").textContent = t("ovChecking");
@@ -96,9 +128,17 @@ document.querySelectorAll("[data-choose]").forEach((btn) => {
 });
 document.querySelectorAll("[data-nav]").forEach((btn) => {
 	btn.addEventListener("click", () => {
-		const target = btn.dataset.nav === "next" ? nextStep(dest, currentStep) : prevStep(dest, currentStep);
+		const target = nextStep(dest, currentStep);
 		if (target) show(target);
 	});
+});
+$("#back-link").addEventListener("click", async () => {
+	if (currentStep === "choose") {
+		showOverview(await loadSettings());
+		return;
+	}
+	const target = prevStep(dest, currentStep);
+	if (target) show(target);
 });
 $("#ov-switch").addEventListener("click", () => show("choose"));
 $("#ov-reconfigure").addEventListener("click", () => show(firstCredentialStep(dest)));
@@ -130,6 +170,7 @@ $("#ob-finish").addEventListener("click", async () => {
 		chain: ["obsidian"],
 		byAdapter: { ...s.byAdapter, obsidian: obsidianCfg() },
 	});
+	configured = true;
 	show("done");
 });
 
@@ -154,25 +195,24 @@ $("#no-verify").addEventListener("click", async () => {
 	}
 });
 
-// —— Notion N2:刷新并点选页面 ——
+// —— Notion N2:自动检测已连接的页面。正常情况(只连了一个)不出现任何列表;
+// 连了多个才让用户挑。轮询只在"还没检测到"时进行,离开步骤即停。 ——
 const noPageNext = $("#no-page-next");
-$("#no-refresh").addEventListener("click", async () => {
-	const st = $("#no-refresh-status");
+const detectStatus = () => $("#no-detect-status");
+
+function renderPageList(pages) {
 	const list = $("#page-list");
-	setStatus(st, "", "…");
 	list.textContent = "";
-	const r = await notionAdapter.searchPages({ token: sanitizeToken(tokenInput.value) });
-	if (!r.ok) {
-		setStatus(st, "bad", t(r.errorKey ?? "errGeneric"));
-		noPageNext.disabled = true;
-		return;
-	}
-	setStatus(st, "", "");
-	for (const page of r.pages) {
+	let stillThere = false;
+	for (const page of pages) {
 		const btn = document.createElement("button");
 		btn.type = "button";
 		btn.className = "page-item";
 		btn.textContent = page.title || t("optUntitledPage");
+		if (selectedPage?.id === page.id) {
+			btn.classList.add("selected");
+			stillThere = true;
+		}
 		btn.addEventListener("click", () => {
 			selectedPage = page;
 			list.querySelectorAll(".page-item").forEach((b) => b.classList.remove("selected"));
@@ -181,7 +221,45 @@ $("#no-refresh").addEventListener("click", async () => {
 		});
 		list.appendChild(btn);
 	}
-});
+	if (!stillThere) {
+		selectedPage = null;
+		noPageNext.disabled = true;
+	}
+}
+
+async function runDetect() {
+	const r = await notionAdapter.searchPages({ token: sanitizeToken(tokenInput.value) });
+	if (!r.ok) {
+		if (r.errorKey === "errNotionSearchEmpty") {
+			// 用户还没在 Notion 里完成"连接"——不是错误,继续等
+			setStatus(detectStatus(), "", t("wizNoPageWaiting"));
+		} else {
+			setStatus(detectStatus(), "bad", t(r.errorKey ?? "errGeneric"));
+			stopPolling();
+		}
+		return;
+	}
+	stopPolling();
+	if (r.pages.length === 1) {
+		// 常见情况:只连接了一个页面 → 自动选中,零操作
+		selectedPage = r.pages[0];
+		$("#page-list").textContent = "";
+		setStatus(detectStatus(), "ok", t("wizNoPageDetected", [selectedPage.title || t("optUntitledPage")]));
+		noPageNext.disabled = false;
+	} else {
+		setStatus(detectStatus(), "", t("wizNoPageMultiple"));
+		renderPageList(r.pages);
+	}
+}
+
+function startDetecting() {
+	stopPolling();
+	runDetect();
+	pollTimer = setInterval(runDetect, 4000);
+}
+
+document.querySelector('[data-step="notion-page"]').addEventListener("step-enter", startDetecting);
+$("#no-refresh").addEventListener("click", startDetecting);
 
 // —— Notion N3:建库(或沿用)+ 完成 ——
 const noFinish = $("#no-finish");
@@ -222,5 +300,6 @@ $("#no-finish").addEventListener("click", async () => {
 		chain: ["notion"],
 		byAdapter: { ...s.byAdapter, notion: notionCfg() },
 	});
+	configured = true;
 	show("done");
 });

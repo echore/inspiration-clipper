@@ -91,10 +91,9 @@
   "wizNoPageStep1":             { "message": "Open that page in Notion" },
   "wizNoPageStep2":             { "message": "Click the ⋯ menu in the top-right, choose \"Connections\"" },
   "wizNoPageStep3":             { "message": "Find your integration in the list and click it to connect" },
-  "wizNoPageListHint":          { "message": "Then click \"Refresh list\" and select the page below:" },
-  "wizNoPageRefresh":           { "message": "Refresh list" },
+  "wizNoPageRefresh":           { "message": "Nothing happening? Click to check again" },
   "wizNoDbTitle":               { "message": "Step 3: Create the library" },
-  "wizNoDbIntro":               { "message": "One click — the extension creates the database under your chosen page with every column set up for you." },
+  "wizNoDbIntro":               { "message": "One click and the extension creates the database under the page it just detected, every column set up for you." },
   "wizNoDbCreate":              { "message": "Create it for me" },
   "wizNoDbExisting":            { "message": "Found your previous database and it still works — just hit \"Finish\" to keep using it" },
   "wizNoDbOk":                  { "message": "Created, and the connection test passed ✓" },
@@ -114,5 +113,9 @@
   "optUntitledPage":            { "message": "(untitled page)" },
   "errNotionDatabase":          { "message": "Can't find the database: make sure it wasn't deleted and its page is still connected to your integration" },
   "errNotionSearchEmpty":       { "message": "No pages detected yet. Make sure you finished the \"Connections\" step in Notion, then hit refresh" },
-  "errNotionCreateDb":          { "message": "Couldn't create the database — click to try again" }
+  "errNotionCreateDb":          { "message": "Couldn't create the database — click to try again" },
+  "wizNoPageWaiting":           { "message": "Watching… once you finish the “Connections” step in Notion, this continues automatically" },
+  "wizBackToOverview":          { "message": "Back to current setup" },
+  "wizNoPageDetected":          {"message": "Found “$1”. Your library will be created under this page", "placeholders": {"page": {"content": "$1"}}},
+  "wizNoPageMultiple":          { "message": "Found several pages. Pick one to hold your library:" }
 }

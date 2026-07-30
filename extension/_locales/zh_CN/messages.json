@@ -91,10 +91,9 @@
   "wizNoPageStep1":             { "message": "在 Notion 里打开那个页面" },
   "wizNoPageStep2":             { "message": "点右上角的 ⋯ 菜单，选“连接”（Connections）" },
   "wizNoPageStep3":             { "message": "在列表里找到你刚创建的 integration，点它完成连接" },
-  "wizNoPageListHint":          { "message": "完成后点“刷新列表”，在下面选中那个页面：" },
-  "wizNoPageRefresh":           { "message": "刷新列表" },
+  "wizNoPageRefresh":           { "message": "没反应?点这里重新检测" },
   "wizNoDbTitle":               { "message": "第三步：创建灵感库" },
-  "wizNoDbIntro":               { "message": "点一下按钮，扩展会在你选的页面下自动建好数据库，所有列都配好，不用你动手。" },
+  "wizNoDbIntro":               { "message": "点一下按钮,扩展会在刚才检测到的页面下自动建好数据库,所有列都配好,不用你动手。" },
   "wizNoDbCreate":              { "message": "帮我建库" },
   "wizNoDbExisting":            { "message": "检测到你之前建的库还能用，直接沿用它，点“完成”即可" },
   "wizNoDbOk":                  { "message": "建好了，连接测试也通过了 ✓" },
@@ -114,5 +113,9 @@
   "optUntitledPage":            { "message": "（无标题页面）" },
   "errNotionDatabase":          { "message": "找不到数据库：确认它没被删，而且所在页面还连接着你的 integration" },
   "errNotionSearchEmpty":       { "message": "还没检测到任何页面。确认你在 Notion 里完成了“连接”这一步，再点刷新列表" },
-  "errNotionCreateDb":          { "message": "建库没成功，点按钮再试一次" }
+  "errNotionCreateDb":          { "message": "建库没成功，点按钮再试一次" },
+  "wizNoPageWaiting":           { "message": "正在检测…你在 Notion 里完成“连接”后,这里会自动继续" },
+  "wizBackToOverview":          { "message": "返回当前配置" },
+  "wizNoPageDetected":          {"message": "已检测到「$1」,灵感库会建在这个页面下", "placeholders": {"page": {"content": "$1"}}},
+  "wizNoPageMultiple":          { "message": "检测到好几个页面,选一个用来放灵感库:" }
 }
