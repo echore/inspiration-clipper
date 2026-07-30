@@ -12,14 +12,58 @@ export function notionCapsFromBotUser(json) {
 	return { maxFileSize: typeof n === "number" ? n : FREE_TIER_LIMIT };
 }
 
+// 属性名五件套:建库 schema 和写入条目共用,改一处两边同步。
+export const NOTION_PROPS = {
+	name: "Name",
+	image: "Image",
+	sourceUrl: "Source URL",
+	sourceTitle: "Source Title",
+	captured: "Captured",
+};
+
 export function notionPageProperties(item, fileUploadId) {
 	return {
-		Name: { title: [{ text: { content: item.filename } }] },
-		Image: { type: "files", files: [{ type: "file_upload", file_upload: { id: fileUploadId }, name: item.filename }] },
-		"Source URL": { url: item.sourceUrl || null },
-		"Source Title": { rich_text: [{ text: { content: item.sourceTitle } }] },
-		Captured: { date: { start: new Date(item.capturedAt).toISOString() } },
+		[NOTION_PROPS.name]: { title: [{ text: { content: item.filename } }] },
+		[NOTION_PROPS.image]: { type: "files", files: [{ type: "file_upload", file_upload: { id: fileUploadId }, name: item.filename }] },
+		[NOTION_PROPS.sourceUrl]: { url: item.sourceUrl || null },
+		[NOTION_PROPS.sourceTitle]: { rich_text: [{ text: { content: item.sourceTitle } }] },
+		[NOTION_PROPS.captured]: { date: { start: new Date(item.capturedAt).toISOString() } },
 	};
+}
+
+// 建库请求体。API 版本 2025-09-03 起 schema 必须嵌在 initial_data_source 下
+// (数据库变成了数据源的容器),顶层 properties 会被拒。
+export function createDatabasePayload(parentPageId, title) {
+	return {
+		parent: { type: "page_id", page_id: parentPageId },
+		title: [{ type: "text", text: { content: title } }],
+		initial_data_source: {
+			properties: {
+				[NOTION_PROPS.name]: { title: {} },
+				[NOTION_PROPS.image]: { files: {} },
+				[NOTION_PROPS.sourceUrl]: { url: {} },
+				[NOTION_PROPS.sourceTitle]: { rich_text: {} },
+				[NOTION_PROPS.captured]: { date: {} },
+			},
+		},
+	};
+}
+
+// search 结果 → { id, title } 列表。title 属性的键名随页面模板变,按 type 找。
+export function mapSearchResults(json) {
+	const results = Array.isArray(json?.results) ? json.results : [];
+	return results
+		.filter((r) => r?.object === "page")
+		.map((r) => {
+			let title = "";
+			for (const prop of Object.values(r.properties ?? {})) {
+				if (prop?.type === "title") {
+					title = (prop.title ?? []).map((seg) => seg?.plain_text ?? "").join("");
+					break;
+				}
+			}
+			return { id: r.id, title };
+		});
 }
 
 function headers(cfg) {
@@ -38,17 +82,66 @@ let cachedCaps = { maxFileSize: FREE_TIER_LIMIT };
 export const notionAdapter = {
 	id: "notion",
 
-	async test(cfg) {
-		if (!cfg.token || !cfg.databaseId) return { ok: false, errorKey: "errNotionUnconfigured" };
+	async verifyToken(cfg) {
+		// 向导 N1 用:此时还没有 databaseId,只验钥匙本身
+		if (!cfg?.token) return { ok: false, errorKey: "errNotionToken" };
 		try {
 			const res = await fetch(`${API}/users/me`, { headers: headers(cfg) });
 			if (res.status === 401) return { ok: false, errorKey: "errNotionToken" };
 			if (!res.ok) return { ok: false, errorKey: "errNotionGeneric" };
 			cachedCaps = notionCapsFromBotUser(await res.json());
-			return { ok: true, capabilities: cachedCaps };
+			return { ok: true };
 		} catch {
 			return { ok: false, errorKey: "errNotionUnreachable" };
 		}
+	},
+
+	async test(cfg) {
+		if (!cfg.token || !cfg.databaseId) return { ok: false, errorKey: "errNotionUnconfigured" };
+		const tokenCheck = await this.verifyToken(cfg);
+		if (!tokenCheck.ok) return tokenCheck;
+		// 第二段:库真的可见吗?token 对但库没分享给 integration 时,
+		// 只验 token 会假绿灯,存的时候才炸——这里就拦住。
+		try {
+			const res = await fetch(`${API}/databases/${cfg.databaseId}`, { headers: headers(cfg) });
+			if (!res.ok) return { ok: false, errorKey: "errNotionDatabase" };
+		} catch {
+			return { ok: false, errorKey: "errNotionUnreachable" };
+		}
+		return { ok: true, capabilities: cachedCaps };
+	},
+
+	async searchPages(cfg) {
+		try {
+			const res = await fetch(`${API}/search`, {
+				method: "POST",
+				headers: { ...headers(cfg), "Content-Type": "application/json" },
+				body: JSON.stringify({ filter: { value: "page", property: "object" }, page_size: 20 }),
+			});
+			if (res.status === 401) return { ok: false, errorKey: "errNotionToken" };
+			if (!res.ok) return { ok: false, errorKey: "errNotionGeneric" };
+			const pages = mapSearchResults(await res.json());
+			if (pages.length === 0) return { ok: false, errorKey: "errNotionSearchEmpty" };
+			return { ok: true, pages };
+		} catch {
+			return { ok: false, errorKey: "errNotionUnreachable" };
+		}
+	},
+
+	async createDatabase(cfg, parentPageId, title) {
+		let res;
+		try {
+			res = await fetch(`${API}/databases`, {
+				method: "POST",
+				headers: { ...headers(cfg), "Content-Type": "application/json" },
+				body: JSON.stringify(createDatabasePayload(parentPageId, title)),
+			});
+		} catch {
+			return { ok: false, errorKey: "errNotionUnreachable" };
+		}
+		if (!res.ok) return { ok: false, errorKey: "errNotionCreateDb" };
+		const json = await res.json();
+		return { ok: true, databaseId: json.id };
 	},
 
 	capabilities() {
