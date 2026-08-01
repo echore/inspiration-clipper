@@ -8,9 +8,9 @@
 
 ## 安装扩展
 
-1. [点这里下载压缩包](https://github.com/echore/inspiration-clipper/archive/refs/heads/master.zip)，解压
+1. [点这里下载最新版](https://github.com/echore/inspiration-clipper/releases/latest/download/inspiration-clipper.zip)，解压
 2. 打开 Chrome 的 `chrome://extensions`，右上角打开"开发者模式"
-3. 点"加载已解压的扩展程序"，选择解压出来的 `extension/` 文件夹
+3. 点"加载已解压的扩展程序"，选择解压出来的 `inspiration-clipper` 文件夹
 4. 装好后设置向导会自动打开，选一个去处跟着走即可
 
 ## 两种去处
