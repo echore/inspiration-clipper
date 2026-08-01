@@ -203,24 +203,19 @@
 		</div>
 	</section>
 
-	<!-- Obsidian O2:开 API、粘 key、测试 -->
+	<!-- Obsidian O2:自动检测连接(新版插件默认开 API;端口/Key 在高级折叠区) -->
 	<section data-step="obsidian-connect" hidden>
 		<h2 data-i18n="wizObConnectTitle"></h2>
-		<ol class="guide">
-			<li data-i18n="wizObConnectStep1"></li>
-			<li data-i18n="wizObConnectStep2"></li>
-			<li data-i18n="wizObConnectStep3"></li>
-		</ol>
-		<label for="apiKey" data-i18n="wizObKeyLabel"></label>
-		<input id="apiKey" type="password" autocomplete="off">
+		<p class="intro" data-i18n="wizObConnectIntro"></p>
+		<div class="inline-status" id="ob-detect-status"></div>
 		<details>
 			<summary data-i18n="wizObAdvanced"></summary>
+			<p class="muted" data-i18n="wizObAdvancedNote"></p>
+			<label for="apiKey" data-i18n="wizObKeyLabel"></label>
+			<input id="apiKey" type="password" autocomplete="off">
 			<label for="port" data-i18n="optPort"></label>
 			<input id="port" type="number" min="0" max="65535" value="27124">
 		</details>
-		<p class="muted" style="margin-top:12px" data-i18n="wizObTestHint"></p>
-		<button type="button" class="btn" id="ob-test" data-i18n="optTestConnection"></button>
-		<div class="inline-status" id="ob-test-status"></div>
 		<div class="nav">
 			<button type="button" class="btn primary" id="ob-next" data-nav="next" data-i18n="wizNext" disabled></button>
 		</div>

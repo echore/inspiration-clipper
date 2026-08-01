@@ -144,23 +144,38 @@ $("#ov-switch").addEventListener("click", () => show("choose"));
 $("#ov-reconfigure").addEventListener("click", () => show(firstCredentialStep(dest)));
 $("#done-overview").addEventListener("click", async () => showOverview(await loadSettings()));
 
-// —— Obsidian O2:测试连接门禁 ——
+// —— Obsidian O2:自动检测连接。新版插件默认开 API,用户只要开着 Obsidian;
+// 连不上就带着指引继续等(旧版插件要手动开开关,等待文案里已说)。 ——
 const obNext = $("#ob-next");
-$("#ob-test").addEventListener("click", async () => {
-	const st = $("#ob-test-status");
-	setStatus(st, "", "…");
+const obDetectStatus = () => $("#ob-detect-status");
+
+async function runObDetect() {
 	const r = await ADAPTERS.obsidian.test(obsidianCfg());
 	if (r.ok) {
-		setStatus(st, "ok", t("optConnected"));
+		stopPolling();
+		setStatus(obDetectStatus(), "ok", t("optConnected"));
 		obNext.disabled = false;
+	} else if (r.errorKey === "errObsidianKey") {
+		// Key 对不上是明确错误,标红;但插件侧改对了就该自动恢复,轮询不停
+		setStatus(obDetectStatus(), "bad", t("errObsidianKey"));
+		obNext.disabled = true;
 	} else {
-		setStatus(st, "bad", t(r.errorKey ?? "errGeneric"));
+		setStatus(obDetectStatus(), "", t("wizObDetectWaiting"));
 		obNext.disabled = true;
 	}
-});
-// 改了 key/端口就得重测
+}
+
+function startObDetecting() {
+	stopPolling();
+	obNext.disabled = true;
+	runObDetect();
+	pollTimer = setInterval(runObDetect, 4000);
+}
+
+document.querySelector('[data-step="obsidian-connect"]').addEventListener("step-enter", startObDetecting);
+// 高级区改了 key/端口 → 立即用新配置重新检测
 for (const id of ["#apiKey", "#port"]) {
-	$(id).addEventListener("input", () => { obNext.disabled = true; });
+	$(id).addEventListener("input", startObDetecting);
 }
 
 // —— Obsidian O3:完成 ——
