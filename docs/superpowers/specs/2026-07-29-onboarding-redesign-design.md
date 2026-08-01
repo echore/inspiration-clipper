@@ -138,3 +138,16 @@ DOM 布线不做单测,与现有代码一致。
 2. 打开官方模板 → 用户自己 Duplicate 到工作区(位置、名字自己定)→ 在复制出的数据库页面 Connections 连接 integration → 扩展检测数据源(search filter=data_source,非 page),校验五列齐全后显示库名让用户确认 → 完成
 
 相应地:`createDatabase`/`createDatabasePayload`/`searchPages` 从 adapter 移除,新增 `searchDataSources`+`mapDataSourceResults`(含缺列检查,错误键 `errNotionSchema`);`errNotionCreateDb` 移除。模板页由开发者维护(五列 + 一条示例),发布后 URL 写入 `NOTION_TEMPLATE_URL` 常量。
+
+## 2026-08-01 决策:Obsidian O2 改零配置自动检测
+
+**背景:** 用户质疑 O2 为何要填端口/Key/手动测试,而旧项目(screenshot-clipper,走 17183 独立本地服务)没有这一步。调查确认:本地 API 是扩展写入 vault 的唯一通路(架构必然),但 O2 表单里端口与 Key 双端默认值本就对齐,唯一真实动作只有"开 API 开关"。
+
+**决策:** Media Companion fork 默认 `apiEnabled: true`(v1.3.0);O2 照搬 Notion N2 的 4 秒轮询自动检测,端口/Key 收进折叠高级区。
+
+**风险与知情(方案成立的前提):**
+- 服务只监听 127.0.0.1,网络不可达;风险面是本机其他程序与网页的盲发写入,最坏后果为向 vault 塞入垃圾条目。用户评估此风险可接受。
+- 换取的是所有 Media Companion 用户(含不用扩展的)默认多开一个本地端口,因此插件设置面板必须有原理/风险/关闭方式的说明文案——这不是可选项。
+- 曾保存过设置的老用户 `apiEnabled: false` 已落盘,默认值变更对其无效;O2 等待文案中包含手动开开关的指引兜底。
+
+**未采用:** 默认生成随机 API Key(更安全,但扩展读不到 Key,用户须手动复制粘贴,重新引入了比"开开关"更重的步骤,零配置目标落空)。
