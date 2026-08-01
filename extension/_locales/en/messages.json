@@ -70,7 +70,7 @@
   "wizObKeyLabel":              {"message": "API key"},
   "wizObConnectIntro":          {"message": "Just keep Obsidian running — the extension connects automatically (the latest plugin ships with the connection enabled)."},
   "wizObDetectWaiting":         {"message": "Connecting… Make sure Obsidian is running and the Media Companion plugin is enabled. On an older plugin version? Open Settings → Media Companion and turn on the API toggle."},
-  "wizObAdvancedNote":          {"message": "The extension sends clips to the Obsidian plugin through a local port (127.0.0.1) — data never leaves this computer. Other apps on this machine could technically reach that port too; for extra protection, set an API key in the plugin settings and paste the same key below. Don't want this channel at all? Turn off the API toggle in the plugin settings."},
+  "wizObAdvancedNote":          {"message": "The extension sends clips to the Obsidian plugin through a local port (127.0.0.1) — data never leaves this computer. Other apps and websites on this machine could technically reach that port too; for extra protection, set an API key in the plugin settings and paste the same key below. Don't want this channel at all? Turn off the API toggle in the plugin settings."},
   "wizObAdvanced":              {"message": "Advanced (usually no need to touch)"},
   "wizObFolderTitle":           {"message": "Last step: pick a folder"},
   "wizObFolderHint":            {"message": "Clips are saved into this folder in your vault; it's created automatically if missing. Just hit \"Finish\" if the default is fine."},

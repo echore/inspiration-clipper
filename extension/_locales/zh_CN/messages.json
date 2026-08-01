@@ -70,7 +70,7 @@
   "wizObKeyLabel":              {"message": "API key"},
   "wizObConnectIntro":          {"message": "保持 Obsidian 开着就行,扩展会自动连上(新版插件已默认开启连接通道)。"},
   "wizObDetectWaiting":         {"message": "正在连接…请确认 Obsidian 开着、Media Companion 插件已启用。装的是旧版插件?去 设置 → Media Companion 把 API 开关打开。"},
-  "wizObAdvancedNote":          {"message": "扩展通过本机端口(127.0.0.1)把图片发给 Obsidian 插件,数据不出这台电脑。本机上的其他程序理论上也能访问这个端口;想加一层防护,就在插件设置里填一个 API key,并把同一个 key 粘到下面。不想用这个通道,在插件设置里关掉 API 开关即可。"},
+  "wizObAdvancedNote":          {"message": "扩展通过本机端口(127.0.0.1)把图片发给 Obsidian 插件,数据不出这台电脑。本机上的其他程序和网页理论上也能访问这个端口;想加一层防护,就在插件设置里填一个 API key,并把同一个 key 粘到下面。不想用这个通道,在插件设置里关掉 API 开关即可。"},
   "wizObAdvanced":              {"message": "高级选项（一般不用动）"},
   "wizObFolderTitle":           {"message": "最后一步：存到哪个文件夹"},
   "wizObFolderHint":            {"message": "图片会存进笔记库里的这个文件夹，不存在会自动创建。不想改就直接点“完成”。"},
